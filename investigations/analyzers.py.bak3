@@ -1,0 +1,185 @@
+"""Explainable forensic indicators; NOT a validated deepfake classifier."""
+import io,math,re,hashlib,os
+from functools import lru_cache
+from PIL import Image,ImageChops,ImageEnhance,ImageStat,ExifTags
+
+def finding(label,level,detail,method):
+ return {'label':label,'level':level,'detail':detail,'method':method}
+def image_analysis(path):
+ out={'metrics':{},'findings':[],'limitations':['Compression and metadata indicators do not prove AI generation or tampering.']}
+ try:
+  with Image.open(path) as im:
+   out['metrics']['format']=im.format or 'unknown'
+   out['metrics']['dimensions']=f'{im.width} × {im.height}'
+   out['metrics']['mode']=im.mode
+   out['metrics']['exif_tags']=len(im.getexif())
+   if not im.getexif():out['findings'].append(finding('No EXIF metadata','info','The image contains no EXIF metadata. This is common for exported or social-media images.','EXIF inspection'))
+   if im.width<256 or im.height<256:out['findings'].append(finding('Low-resolution source','caution','Small images limit forensic reliability.','Dimensions'))
+   rgb=im.convert('RGB');rgb.thumbnail((1000,1000))
+   buf=io.BytesIO();rgb.save(buf,format='JPEG',quality=90);buf.seek(0)
+   recompressed=Image.open(buf).convert('RGB');delta=ImageChops.difference(rgb,recompressed)
+   stat=ImageStat.Stat(delta)
+   out['metrics']['jpeg_recompression_mean_delta']=round(sum(stat.mean)/3,2)
+   # Error level analysis is a visualization of recompression residuals, NOT a deepfake map.
+   try:
+    from django.conf import settings
+    from pathlib import Path
+    source=Path(path)
+    relative=hashlib.sha256(str(source).encode()).hexdigest()[:20] + '-ela.png'
+    target=Path(settings.MEDIA_ROOT)/'derived'/relative
+    target.parent.mkdir(parents=True,exist_ok=True)
+    enhanced=ImageEnhance.Contrast(delta).enhance(12)
+    enhanced.save(target,format='PNG')
+    out['visualizations']=[{'title':'JPEG recompression residual (ELA-style)','url':settings.MEDIA_URL.rstrip('/')+'/derived/'+relative,'description':'Brighter pixels show larger differences after JPEG recompression. These can arise from texture, edges, compression history or editing; they do not localize deepfakes.'}]
+    out['metrics']['ela_visualization']='Available below'
+   except Exception:
+    out['findings'].append(finding('Visualization unavailable','info','Residual image could not be saved; numerical analysis remains available.','ELA-style residual'))
+   prediction=optional_image_model(path)
+   if prediction:
+    out['model_result']=prediction
+    if prediction.get('error'):
+     out['findings'].append(finding('Optional model unavailable','info',prediction['error'],'Optional classifier'))
+    else:
+     out['findings'].append(finding('Experimental model output','info','Model scores are shown separately. They are uncalibrated for this investigation and do not establish authenticity.','Configured pretrained image classifier'))
+   out['findings'].append(finding('Compression difference measured','info','A JPEG recompression delta was measured; a single global value is not a reliable manipulation detector.','Recompression difference'))
+ except Exception as e:out['error']=f'Image could not be decoded: {type(e).__name__}'
+ return out
+
+def video_analysis(path):
+ out={'metrics':{},'findings':[],'limitations':['Frame differences may reflect camera motion, scene cuts or compression, not deepfakes.']}
+ try:
+  import cv2
+  cap=cv2.VideoCapture(str(path))
+  if not cap.isOpened():raise ValueError('Video decoder unavailable')
+  fps=cap.get(cv2.CAP_PROP_FPS) or 0
+  count=int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+  duration=count/fps if fps>0 else 0
+  out['metrics']={'fps':round(fps,2),'frames':count,'duration_seconds':round(duration,2),'width':int(cap.get(3)),'height':int(cap.get(4))}
+  sample_count=min(24,max(1,count))
+  indices=sorted(set(round(i*(count-1)/max(1,sample_count-1)) for i in range(sample_count))) if count else list(range(24))
+  previous=None;changes=[];samples=[];visuals=[]
+  from django.conf import settings
+  from pathlib import Path
+  derived=Path(settings.MEDIA_ROOT)/'derived'
+  derived.mkdir(parents=True,exist_ok=True)
+  file_tag=hashlib.sha256(str(path).encode()).hexdigest()[:16]
+  for idx in indices:
+   cap.set(cv2.CAP_PROP_POS_FRAMES,idx)
+   ok,frame=cap.read()
+   if not ok:continue
+   if len(visuals)<6 and (len(visuals)==0 or len(visuals)<6 and idx in indices[::max(1,len(indices)//6)]):
+    thumb=cv2.resize(frame,(480,max(1,round(frame.shape[0]*480/frame.shape[1]))))
+    name=f'{file_tag}-frame-{idx}.jpg'
+    if cv2.imwrite(str(derived/name),thumb):
+     visuals.append({'title':f'Frame at {idx/fps:.2f}s' if fps else f'Frame {idx}','url':settings.MEDIA_URL.rstrip('/')+'/derived/'+name,'description':'Sampled frame for human inspection; not a deepfake localization.'})
+   gray=cv2.resize(cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY),(160,90))
+   if previous is not None:
+    diff=float(cv2.absdiff(gray,previous).mean())
+    changes.append(diff)
+    if diff>48:samples.append({'second':round(idx/fps,2) if fps else 0,'change':round(diff,1)})
+   previous=gray
+  # Apply the same opt-in classifier to a small, evenly spaced set of video frames.
+  # Predictions are per-frame evidence, not a temporal or lip-sync detector.
+  if os.getenv('TRUTHLENS_IMAGE_MODEL','').strip():
+   frame_predictions=[]
+   try:
+    classifier=_load_classifier(os.getenv('TRUTHLENS_IMAGE_MODEL').strip())
+    selected=indices[::max(1,len(indices)//8)][:8]
+    for frame_index in selected:
+     cap.set(cv2.CAP_PROP_POS_FRAMES,frame_index)
+     success,frame=cap.read()
+     if not success:continue
+     pil=Image.fromarray(cv2.cvtColor(frame,cv2.COLOR_BGR2RGB))
+     predictions=classifier(pil,top_k=3)
+     frame_predictions.append({'timestamp_seconds':round(frame_index/fps,2) if fps else None,'labels':[{'label':str(v['label']),'score':round(float(v['score']),4)} for v in predictions]})
+    if frame_predictions:
+     out['model_result']={'model':os.getenv('TRUTHLENS_IMAGE_MODEL'),'frames':frame_predictions,'warning':'Experimental frame-level classification; no temporal consistency or lip-sync model. Scores are not calibrated probabilities of fakery.'}
+   except Exception as exc:
+    out['model_result']={'model':os.getenv('TRUTHLENS_IMAGE_MODEL'),'error':f'Frame model unavailable ({type(exc).__name__}).'}
+  cap.release()
+  if visuals:out['visualizations']=visuals
+  out['metrics']['sampled_frames']=len(indices)
+  out['metrics']['mean_frame_difference']=round(sum(changes)/len(changes),2) if changes else 0
+  out['metrics']['high_change_timestamps']=samples[:8]
+  if samples:out['findings'].append(finding('Abrupt visual transitions','caution',f'{len(samples)} sampled transitions exceeded the scene-change threshold; review timestamps in metrics.','Sampled grayscale frame difference'))
+  else:out['findings'].append(finding('No major sampled transitions','info','No abrupt transition was detected in the sampled frames.','Sampled grayscale frame difference'))
+ except ImportError:out['error']='OpenCV not installed; video analysis unavailable.'
+ except Exception as e:out['error']=f'Video processing failed: {type(e).__name__}'
+ return out
+
+def audio_analysis(path):
+ out={'metrics':{},'findings':[],'limitations':['Spectral and clipping statistics cannot establish whether a voice is cloned.','MP3/M4A decoding may require additional codecs.']}
+ try:
+  import librosa,numpy as np
+  y,sr=librosa.load(str(path),sr=16000,mono=True,duration=90)
+  if len(y)==0:raise ValueError('Empty audio')
+  rms=float(np.sqrt(np.mean(y*y)));peak=float(np.max(np.abs(y)))
+  clipped=float(np.mean(np.abs(y)>=0.99))*100
+  zcr=float(np.mean(librosa.feature.zero_crossing_rate(y)))
+  # Save a compact waveform visualization without exposing original audio.
+  try:
+   from django.conf import settings
+   from pathlib import Path
+   from PIL import ImageDraw
+   target=Path(settings.MEDIA_ROOT)/'derived'/(hashlib.sha256(str(path).encode()).hexdigest()[:16]+'-waveform.png')
+   target.parent.mkdir(parents=True,exist_ok=True)
+   width,height=960,240
+   canvas=Image.new('RGB',(width,height),(11,21,38));draw=ImageDraw.Draw(canvas)
+   draw.line([(0,height//2),(width,height//2)],fill=(52,80,105),width=1)
+   edges=np.linspace(0,len(y),width+1,dtype=int)
+   for x in range(width):
+    segment=y[edges[x]:edges[x+1]]
+    amplitude=float(np.max(np.abs(segment))) if len(segment) else 0
+    half=max(1,int(amplitude*(height//2-12)))
+    draw.line([(x,height//2-half),(x,height//2+half)],fill=(74,224,222),width=1)
+   canvas.save(target)
+   out['visualizations']=[{'title':'Audio waveform (first 90 seconds)','url':settings.MEDIA_URL.rstrip('/')+'/derived/'+target.name,'description':'Amplitude envelope for inspection; not a synthetic-speech classification.'}]
+  except Exception:pass
+  out['metrics']={'sample_rate':sr,'analyzed_seconds':round(len(y)/sr,2),'rms':round(rms,4),'peak':round(peak,4),'clipped_percent':round(clipped,3),'zero_crossing_rate':round(zcr,4)}
+  if clipped>0.5:out['findings'].append(finding('Possible audio clipping','caution',f'{clipped:.2f}% of samples are near full scale.','Amplitude threshold'))
+  if rms<0.003:out['findings'].append(finding('Very low signal level','caution','Recording may be silent or very quiet.','RMS energy'))
+  out['findings'].append(finding('Audio features extracted','info','Signal features extracted for human review; voice authenticity has not been classified.','Librosa features'))
+ except ImportError:out['error']='Librosa/NumPy not installed; audio analysis unavailable.'
+ except Exception as e:out['error']=f'Audio processing failed: {type(e).__name__}'
+ return out
+
+def text_analysis(text,reference=''):
+ words=re.findall(r"[a-z0-9']+",text.lower());out={'metrics':{'characters':len(text),'words':len(words),'unique_words':len(set(words))},'findings':[],'limitations':['Text style alone cannot reliably identify AI authorship or factual truth.']}
+ if reference.strip():
+  a=set(re.findall(r'[a-z0-9]+',text.lower()));b=set(re.findall(r'[a-z0-9]+',reference.lower()))
+  overlap=len(a&b)/len(a|b) if a|b else 1
+  out['metrics']['reference_token_jaccard']=round(overlap,3)
+  out['findings'].append(finding('Text-reference overlap','caution' if overlap<0.25 else 'info',f'Keyword overlap: {overlap:.1%}. Low overlap warrants review but does not establish deception.','Token-set Jaccard'))
+ else:out['findings'].append(finding('Text inspected','info','No verified reference transcript supplied; claims cannot be fact-checked automatically.','Text statistics'))
+ return out
+
+def correlate(evidence):
+ kinds={e.kind for e in evidence}
+ findings=[]
+ if 'video' in kinds and 'audio' in kinds:findings.append(finding('Video and audio provided','info','Both modalities are available. Lip-sync verification requires an additional trained alignment model and is not performed here.','Modality inventory'))
+ if 'text' in kinds and ('audio' in kinds or 'video' in kinds):findings.append(finding('Transcript comparison pending','info','Text is present, but automated speech transcription is not included. Use a verified reference transcript for text comparison.','Modality inventory'))
+ return {'modalities':sorted(kinds),'findings':findings,'verdict':'Inconclusive — manual verification recommended','risk_score':None,'model_status':'No validated deepfake classification model installed'}
+
+
+def optional_image_model(path):
+ """Opt-in Hugging Face image classifier. No model is downloaded without explicit configuration.
+ Set TRUTHLENS_IMAGE_MODEL to a trusted image-classification model repository or local directory.
+ Labels are preserved as supplied by that model; scores are not forensic probabilities.
+ """
+ model_id=os.getenv('TRUTHLENS_IMAGE_MODEL','').strip()
+ if not model_id:return None
+ try:
+  from transformers import pipeline
+  classifier=_load_classifier(model_id)
+  with Image.open(path) as im:
+   scores=classifier(im.convert('RGB'),top_k=5)
+  return {'model':model_id,'labels':[{'label':str(v['label']),'score':round(float(v['score']),4)} for v in scores], 'warning':'Experimental, model-dependent outputs; no independent validation or calibration has been performed.'}
+ except Exception as exc:
+  return {'model':model_id,'error':f'Model not available ({type(exc).__name__}). Verify model files, dependencies and network access.'}
+
+
+@lru_cache(maxsize=2)
+def _load_classifier(model_id):
+ """Load once per Django process; only use model IDs you explicitly trust."""
+ from transformers import pipeline
+ return pipeline('image-classification',model=model_id,device=-1,trust_remote_code=False)

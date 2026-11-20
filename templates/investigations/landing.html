@@ -1,0 +1,1673 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TruthLens | Advanced Multimodal Digital Forensics &amp; Deepfake AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- React 18, ReactDOM & Babel -->
+  <script src="{% static 'js/react.min.js' %}"></script>
+  <script src="{% static 'js/react-dom.min.js' %}"></script>
+  <script src="{% static 'js/babel.min.js' %}"></script>
+  <!-- Three.js & GLTFLoader for 3D AI Avatar -->
+  <script src="{% static 'js/three.min.js' %}"></script>
+  <script src="{% static 'js/GLTFLoader.js' %}"></script>
+  <!-- Chart.js for Live Forensics Telemetry -->
+  <script src="{% static 'js/chart.umd.min.js' %}"></script>
+
+  <style>
+    :root {
+      --bg: #030712;
+      --panel: #07101e;
+      --line: rgba(0, 229, 255, 0.16);
+      --cyan: #00f3ff;
+      --blue: #0ea5e9;
+      --muted: #8498b5;
+      --text: #edf5ff;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* Ambient Animated Cyber Background */
+    body:before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: -1;
+      background:
+        radial-gradient(ellipse at 75% 15%, rgba(2, 132, 199, 0.22), transparent 45%),
+        radial-gradient(ellipse at 15% 65%, rgba(0, 243, 255, 0.12), transparent 42%),
+        radial-gradient(ellipse at 50% 90%, rgba(14, 165, 233, 0.15), transparent 50%);
+      animation: auroraBreathe 12s ease-in-out infinite alternate;
+    }
+
+    @keyframes auroraBreathe {
+      0% { opacity: 0.7; transform: scale(0.98); }
+      100% { opacity: 1; transform: scale(1.02); }
+    }
+
+    .gridbg {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      opacity: 0.15;
+      background-image:
+        linear-gradient(rgba(0, 243, 255, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 243, 255, 0.08) 1px, transparent 1px);
+      background-size: 52px 52px;
+      mask-image: linear-gradient(to bottom, black, transparent 90%);
+    }
+
+    /* Scroll-triggered reveal animations */
+    .reveal-on-scroll {
+      opacity: 0;
+      transform: translateY(32px);
+      transition: opacity 0.85s cubic-bezier(0.16, 1, 0.3, 1), transform 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+      will-change: opacity, transform;
+    }
+
+    .reveal-on-scroll.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .delay-100 { transition-delay: 0.12s; }
+    .delay-200 { transition-delay: 0.24s; }
+    .delay-300 { transition-delay: 0.36s; }
+    .delay-400 { transition-delay: 0.48s; }
+
+    /* Top Sticky Navigation */
+    .nav {
+      height: 76px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 7vw;
+      border-bottom: 1px solid rgba(0, 229, 255, 0.14);
+      position: sticky;
+      top: 0;
+      background: rgba(3, 8, 20, 0.85);
+      backdrop-filter: blur(18px);
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      color: #fff;
+      text-decoration: none;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 800;
+      font-size: 20px;
+      letter-spacing: -0.5px;
+    }
+
+    /* Dashboard-matching brand identity — compact sizing */
+    .tl-brand {
+      gap: 10px;
+      align-items: center;
+    }
+
+    .tl-brand-image {
+      display: block;
+      width: 180px;
+      height: auto;
+      max-height: 40px;
+      object-fit: contain;
+    }
+
+    .tl-brand-logo {
+      font-size: 26px;
+      color: var(--cyan);
+      text-shadow: 0 0 16px rgba(0, 243, 255, 0.5);
+      line-height: 1;
+      display: inline-block;
+    }
+
+    .tl-brand-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.05;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 17px;
+      letter-spacing: 1px;
+      color: #ffffff;
+    }
+
+    .tl-brand-accent {
+      color: var(--cyan);
+    }
+
+    .tl-brand-text small {
+      display: block;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 7.5px;
+      font-weight: 600;
+      letter-spacing: 2.2px;
+      color: #758ba0;
+      margin-top: 3px;
+    }
+
+    .navlinks {
+      display: flex;
+      gap: 30px;
+      color: #94a7bd;
+      font-size: 13.5px;
+      font-weight: 500;
+    }
+
+    .navlinks a {
+      color: inherit;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .navlinks a:hover {
+      color: #00f3ff;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .navbtn, .btn {
+      border: 1px solid rgba(0, 229, 255, 0.32);
+      background: linear-gradient(135deg, rgba(2, 132, 199, 0.22), rgba(0, 243, 255, 0.12));
+      color: #e0f8ff;
+      border-radius: 9px;
+      padding: 10px 18px;
+      font: 600 13px 'DM Sans', sans-serif;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.25s ease;
+    }
+
+    .navbtn:hover, .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0, 243, 255, 0.28);
+      border-color: #00f3ff;
+      color: #ffffff;
+    }
+
+    .btn.primary {
+      background: linear-gradient(110deg, #00f3ff, #0284c7);
+      color: #020914;
+      border: 0;
+      box-shadow: 0 6px 28px rgba(0, 243, 255, 0.35);
+      font-weight: 700;
+      font-family: 'Space Grotesk', sans-serif;
+      letter-spacing: 0.3px;
+    }
+
+    .btn.primary:hover {
+      box-shadow: 0 8px 36px rgba(0, 243, 255, 0.6);
+      background: linear-gradient(110deg, #38bdf8, #0369a1);
+    }
+
+    .btn.secondary {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.12);
+      color: #edf5ff;
+    }
+
+    /* Hero Layout */
+    .hero {
+      min-height: calc(100vh - 76px);
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      align-items: center;
+      padding: 65px 7vw 70px;
+      gap: 4vw;
+      position: relative;
+      z-index: 10;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      border: 1px solid rgba(0, 243, 255, 0.25);
+      border-radius: 100px;
+      padding: 7px 14px;
+      color: #00f3ff;
+      background: rgba(0, 243, 255, 0.07);
+      font: 11px 'JetBrains Mono', monospace;
+      letter-spacing: 0.08em;
+    }
+
+    .pulse {
+      width: 6px;
+      height: 6px;
+      background: #00f3ff;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #00f3ff;
+      animation: pulseAnim 1.8s infinite;
+    }
+
+    @keyframes pulseAnim {
+      50% { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    .hero h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(44px, 5.4vw, 70px);
+      line-height: 1.04;
+      letter-spacing: -0.05em;
+      margin: 22px 0 20px;
+      max-width: 680px;
+      font-weight: 800;
+      color: #ffffff;
+    }
+
+    .gradient {
+      background: linear-gradient(100deg, #ffffff 4%, #00f3ff 45%, #38bdf8 85%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      font-size: 16px;
+      line-height: 1.75;
+      color: #94a3b8;
+      max-width: 530px;
+      margin: 0;
+    }
+
+    .actions {
+      display: flex;
+      gap: 14px;
+      margin-top: 30px;
+      flex-wrap: wrap;
+    }
+
+    .trust {
+      display: flex;
+      gap: 22px;
+      align-items: center;
+      margin-top: 30px;
+      color: #71849f;
+      font-size: 12.5px;
+    }
+
+    .trust span {
+      display: flex;
+      gap: 7px;
+      align-items: center;
+    }
+
+    .trust i {
+      color: #00f3ff;
+      font-style: normal;
+    }
+
+    /* 3D Boy AI Live Video Canvas Area */
+    .visual-3d-wrap {
+      height: min(580px, 62vw);
+      min-height: 450px;
+      position: relative;
+      display: grid;
+      place-items: center;
+      perspective: 900px;
+    }
+
+    .visual-canvas {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      inset: 0;
+      pointer-events: auto;
+    }
+
+    .floating-tag {
+      position: absolute;
+      top: 10%;
+      left: 0;
+      border: 1px solid rgba(0, 243, 255, 0.3);
+      background: rgba(4, 12, 24, 0.88);
+      backdrop-filter: blur(12px);
+      padding: 9px 14px;
+      border-radius: 9px;
+      font: 11px 'JetBrains Mono', monospace;
+      color: #bbf2f6;
+      pointer-events: none;
+      z-index: 10;
+      box-shadow: 0 0 20px rgba(0, 243, 255, 0.16);
+    }
+
+    .floating-tag span {
+      color: #10b981;
+    }
+
+    .orb-label {
+      position: absolute;
+      bottom: 8%;
+      right: 0;
+      border: 1px solid var(--line);
+      background: rgba(4, 12, 24, 0.88);
+      backdrop-filter: blur(12px);
+      padding: 12px 16px;
+      border-radius: 12px;
+      pointer-events: none;
+      z-index: 10;
+      box-shadow: 0 0 22px rgba(2, 132, 199, 0.2);
+    }
+
+    .orb-label b {
+      display: block;
+      font: 11px 'JetBrains Mono', monospace;
+      color: #00f3ff;
+      letter-spacing: 0.05em;
+    }
+
+    .orb-label small {
+      color: #7b91ad;
+      font-size: 10.5px;
+    }
+
+    .scrollhint {
+      position: absolute;
+      bottom: 22px;
+      left: 7vw;
+      color: #64748b;
+      font: 10px 'JetBrains Mono', monospace;
+      letter-spacing: 0.12em;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .scrollhint:before {
+      content: "";
+      width: 28px;
+      height: 1px;
+      background: #00f3ff;
+    }
+
+    /* Content Sections */
+    section.content {
+      padding: 90px 7vw;
+      max-width: 1440px;
+      margin: auto;
+      position: relative;
+      z-index: 10;
+    }
+
+    .section-head {
+      max-width: 680px;
+      margin: 0 auto 50px;
+      text-align: center;
+    }
+
+    .section-head h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(32px, 3.8vw, 48px);
+      letter-spacing: -0.04em;
+      margin: 18px 0;
+      font-weight: 800;
+      color: #ffffff;
+    }
+
+    .section-head p {
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 15.5px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+    }
+
+    .card {
+      background: linear-gradient(145deg, rgba(8, 18, 34, 0.92), rgba(4, 9, 18, 0.9));
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 26px 22px;
+      min-height: 230px;
+      transition: all 0.35s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card:hover {
+      transform: translateY(-8px) scale(1.02);
+      border-color: #00f3ff;
+      box-shadow: 0 16px 45px rgba(0, 243, 255, 0.2);
+    }
+
+    .ico {
+      width: 48px;
+      height: 48px;
+      border-radius: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, rgba(0, 243, 255, 0.12) 0%, rgba(2, 132, 199, 0.05) 100%);
+      color: #00f3ff;
+      border: 1px solid rgba(0, 243, 255, 0.35);
+      margin-bottom: 20px;
+      box-shadow: 0 4px 18px rgba(0, 243, 255, 0.12), inset 0 0 12px rgba(0, 243, 255, 0.04);
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+    }
+
+    .ico-svg {
+      width: 24px;
+      height: 24px;
+      display: block;
+      filter: drop-shadow(0 0 6px rgba(0, 243, 255, 0.45));
+      transition: transform 0.35s ease, filter 0.35s ease;
+    }
+
+    .card:hover .ico {
+      transform: translateY(-2px) scale(1.08);
+      border-color: #00f3ff;
+      background: linear-gradient(135deg, rgba(0, 243, 255, 0.22) 0%, rgba(2, 132, 199, 0.15) 100%);
+      box-shadow: 0 0 25px rgba(0, 243, 255, 0.4), inset 0 0 14px rgba(0, 243, 255, 0.2);
+    }
+
+    .card:hover .ico-svg {
+      transform: scale(1.06);
+      filter: drop-shadow(0 0 10px rgba(0, 243, 255, 0.85));
+    }
+
+    .card h3 {
+      font-family: 'Space Grotesk', sans-serif;
+      margin: 0 0 10px;
+      font-size: 17px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .card p {
+      margin: 0;
+      color: #8da2bd;
+      font-size: 13.5px;
+      line-height: 1.65;
+    }
+
+    .card-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: #00f3ff;
+      background: rgba(0, 243, 255, 0.08);
+      padding: 3px 8px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-top: 14px;
+    }
+
+    /* Chart.js Analytics Card */
+    .chart-card {
+      background: linear-gradient(145deg, rgba(7, 16, 32, 0.95), rgba(3, 8, 16, 0.95));
+      border: 1px solid rgba(0, 229, 255, 0.24);
+      border-radius: 18px;
+      padding: 32px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 35px rgba(0, 243, 255, 0.12);
+    }
+
+    .chart-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .chart-title-area b {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 18px;
+      color: #ffffff;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .chart-title-area small {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #00f3ff;
+      letter-spacing: 0.5px;
+    }
+
+    .chart-toggle-group {
+      display: flex;
+      gap: 8px;
+      background: rgba(4, 10, 20, 0.85);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+    }
+
+    .chart-toggle-btn {
+      background: transparent;
+      border: 0;
+      color: #8da2bd;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      padding: 8px 14px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .chart-toggle-btn.active {
+      background: rgba(0, 243, 255, 0.16);
+      color: #00f3ff;
+      border: 1px solid rgba(0, 243, 255, 0.35);
+      font-weight: 600;
+    }
+
+    .chart-canvas-wrap {
+      position: relative;
+      height: 320px;
+      width: 100%;
+    }
+
+    /* Interactive Live Forensic Scanner Demo */
+    .scanner-demo {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: #050b14;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+    }
+
+    .scanner-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 22px;
+      border-bottom: 1px solid var(--line);
+      color: #8ca2bf;
+      font: 11px 'JetBrains Mono', monospace;
+      background: rgba(6, 14, 28, 0.6);
+    }
+
+    .scanner-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .scanner-box {
+      padding: 26px 28px;
+      min-height: 260px;
+    }
+
+    .scanner-box + .scanner-box {
+      border-left: 1px solid var(--line);
+    }
+
+    .box-title {
+      font: 11px 'JetBrains Mono', monospace;
+      color: #64748b;
+      margin-bottom: 16px;
+      letter-spacing: 0.06em;
+    }
+
+    .evidence-preview-visual {
+      height: 120px;
+      border: 1px dashed rgba(0, 243, 255, 0.25);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 243, 255, 0.03);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #94a3b8;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .scan-beam {
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #00f3ff, transparent);
+      position: relative;
+      opacity: 0;
+      box-shadow: 0 0 16px #00f3ff;
+    }
+
+    .is-scanning .scan-beam {
+      opacity: 1;
+      animation: scanBeamAnim 1.4s ease-in-out infinite;
+    }
+
+    @keyframes scanBeamAnim {
+      0% { transform: translateY(0); opacity: 0; }
+      20% { opacity: 1; }
+      100% { transform: translateY(120px); opacity: 0; }
+    }
+
+    .scanner-testrow {
+      padding: 16px 22px;
+      border-top: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #94a3b8;
+      font: 11.5px 'JetBrains Mono', monospace;
+      background: rgba(5, 12, 22, 0.8);
+    }
+
+    .run-scan-btn {
+      font: 11.5px 'JetBrains Mono', monospace;
+      background: #092036;
+      color: #00f3ff;
+      border: 1px solid rgba(0, 243, 255, 0.4);
+      border-radius: 8px;
+      padding: 9px 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .run-scan-btn:hover {
+      box-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
+      border-color: #00f3ff;
+      background: rgba(0, 243, 255, 0.15);
+    }
+
+    /* Pipeline Steps */
+    .pipeline-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+    }
+
+    .pipeline-card {
+      background: rgba(6, 14, 28, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 24px;
+      transition: all 0.3s ease;
+    }
+
+    .pipeline-card:hover {
+      transform: translateY(-6px);
+      border-color: rgba(0, 243, 255, 0.4);
+    }
+
+    .pipeline-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: #00f3ff;
+      background: rgba(0, 243, 255, 0.1);
+      padding: 3px 8px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-bottom: 12px;
+    }
+
+    .pipeline-card h4 {
+      font-family: 'Space Grotesk', sans-serif;
+      margin: 0 0 8px;
+      font-size: 17px;
+      color: #ffffff;
+    }
+
+    .pipeline-card p {
+      margin: 0;
+      color: #8da2bd;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    /* Footer Conversion CTA */
+    .footercta {
+      text-align: center;
+      padding: 100px 7vw 110px;
+      position: relative;
+      overflow: hidden;
+      z-index: 10;
+    }
+
+    .footercta:before {
+      content: "";
+      position: absolute;
+      pointer-events: none;
+      width: 600px;
+      height: 300px;
+      background: rgba(2, 132, 199, 0.18);
+      filter: blur(100px);
+      top: 10%;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .footercta h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(34px, 4.6vw, 54px);
+      letter-spacing: -0.05em;
+      margin: 0 0 16px;
+      font-weight: 800;
+      color: #ffffff;
+    }
+
+    .footercta p {
+      color: var(--muted);
+      margin: 0 0 30px;
+      font-size: 16px;
+    }
+
+    .footer {
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 28px 7vw;
+      display: flex;
+      justify-content: space-between;
+      color: #64748b;
+      font-size: 12.5px;
+      align-items: center;
+      position: relative;
+      z-index: 10;
+    }
+
+    .footer .tl-brand-logo {
+      text-shadow: 0 0 12px rgba(0, 243, 255, 0.4);
+    }
+
+    @media (max-width: 1024px) {
+      .hero { grid-template-columns: 1fr; padding-top: 50px; }
+      .cards { grid-template-columns: 1fr 1fr; }
+      .pipeline-grid { grid-template-columns: 1fr 1fr; }
+      .navlinks { display: none; }
+      .scrollhint { display: none; }
+    }
+
+    @media (max-width: 640px) {
+      .cards { grid-template-columns: 1fr; }
+      .scanner-grid { grid-template-columns: 1fr; }
+      .scanner-box + .scanner-box { border-left: 0; border-top: 1px solid var(--line); }
+      .pipeline-grid { grid-template-columns: 1fr; }
+      .tl-brand-image { width: 145px; max-height: 34px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="gridbg"></div>
+  <div id="root"></div>
+
+  <!-- Server-injected routes -->
+  <script>
+    window.TL_LANDING_CONFIG = {
+      loginUrl: "{% url 'login' %}",
+      registerUrl: "{% url 'register' %}",
+      dashboardUrl: "{% url 'dashboard' %}",
+      modelUrl: "{% static 'models/boy_face.glb' %}",
+      logoUrl: "{% static 'images/truthline-logo.png' %}",
+      wordmarkUrl: "{% static 'images/truthlens-wordmark.png' %}"
+    };
+  </script>
+
+  {% verbatim %}
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+    const config = window.TL_LANDING_CONFIG || { loginUrl: '/login/', registerUrl: '/register/', dashboardUrl: '/dashboard/' };
+
+    // ========================================================
+    // COMPONENT: STICKY NAVIGATION BAR
+    // ========================================================
+    function Navbar() {
+      return (
+        <nav className="nav">
+          <a href={config.dashboardUrl} className="brand tl-brand">
+            <img src={config.logoUrl} className="tl-brand-image" alt="Truthline" />
+          </a>
+
+          <div className="navlinks">
+            <a href="#modalities">4 Modalities</a>
+            <a href="#telemetry">Live Telemetry</a>
+            <a href="#scanner">Evidence Scanner</a>
+            <a href="#pipeline">Pipeline</a>
+            <a href={config.dashboardUrl}>Archive Cases</a>
+          </div>
+
+          <div className="nav-actions">
+            <a href={config.registerUrl} className="btn primary">
+              Get Started
+            </a>
+          </div>
+        </nav>
+      );
+    }
+
+    // ========================================================
+    // COMPONENT: 3D LIVE BOY AI FORENSIC AVATAR (VIDEO FEEL)
+    // ========================================================
+    function Live3DBoyFaceAvatar({ scrollY }) {
+      const containerRef = useRef(null);
+      const canvasRef = useRef(null);
+      const headPivotRef = useRef(null);
+
+      useEffect(() => {
+        const container = containerRef.current;
+        const canvas = canvasRef.current;
+        if (!container || !canvas || typeof THREE === 'undefined') return;
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(38, container.clientWidth / container.clientHeight, 0.1, 50);
+        camera.position.set(0, 0, 0.98);
+
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.18;
+        renderer.outputEncoding = THREE.sRGBEncoding;
+
+        const ambientLight = new THREE.AmbientLight(0x040d1a, 2.2);
+        scene.add(ambientLight);
+
+        const keyLight = new THREE.DirectionalLight(0xdcf8ff, 2.6);
+        keyLight.position.set(-1.2, 1.6, 2.0);
+        scene.add(keyLight);
+
+        const blueFill = new THREE.DirectionalLight(0x0284c7, 2.0);
+        blueFill.position.set(1.6, -0.6, 1.4);
+        scene.add(blueFill);
+
+        const cyanRim = new THREE.DirectionalLight(0x00f3ff, 2.8);
+        cyanRim.position.set(0.2, 2.0, -1.8);
+        scene.add(cyanRim);
+
+        const headPivot = new THREE.Group();
+        headPivot.scale.set(0.72, 0.72, 0.72);
+        scene.add(headPivot);
+        headPivotRef.current = headPivot;
+
+        const ringsGroup = new THREE.Group();
+        ringsGroup.scale.set(0.72, 0.72, 0.72);
+        scene.add(ringsGroup);
+
+        const centerSegGroup = new THREE.Group();
+        for (let i = 0; i < 4; i++) {
+          const start = i * (Math.PI / 2) + 0.14;
+          const len = (Math.PI / 2) - 0.28;
+          const arc = new THREE.Mesh(
+            new THREE.RingGeometry(0.22, 0.228, 48, 1, start, len),
+            new THREE.MeshBasicMaterial({ color: 0x00f3ff, transparent: true, opacity: 0.75, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })
+          );
+          centerSegGroup.add(arc);
+        }
+        ringsGroup.add(centerSegGroup);
+
+        const hexShield = new THREE.Mesh(
+          new THREE.RingGeometry(0.28, 0.288, 6),
+          new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.6, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })
+        );
+        hexShield.rotation.x = Math.PI / 4;
+        ringsGroup.add(hexShield);
+
+        const octRing = new THREE.Mesh(
+          new THREE.RingGeometry(0.33, 0.338, 8),
+          new THREE.MeshBasicMaterial({ color: 0x0284c7, transparent: true, opacity: 0.55, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })
+        );
+        octRing.rotation.y = Math.PI / 3.5;
+        octRing.rotation.x = -Math.PI / 8;
+        ringsGroup.add(octRing);
+
+        const leftReticleGroup = new THREE.Group();
+        leftReticleGroup.position.set(-0.25, 0.03, 0.02);
+        leftReticleGroup.add(new THREE.Mesh(
+          new THREE.RingGeometry(0.065, 0.071, 32),
+          new THREE.MeshBasicMaterial({ color: 0x00f3ff, transparent: true, opacity: 0.8, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })
+        ));
+        leftReticleGroup.add(new THREE.Mesh(
+          new THREE.RingGeometry(0.038, 0.043, 6),
+          new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.85, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })
+        ));
+        ringsGroup.add(leftReticleGroup);
+
+        const rightReticleGroup = new THREE.Group();
+        rightReticleGroup.position.set(0.25, -0.02, 0.02);
+        const rDiamond = new THREE.Mesh(
+          new THREE.RingGeometry(0.07, 0.076, 4),
+          new THREE.MeshBasicMaterial({ color: 0x00f3ff, transparent: true, opacity: 0.8, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })
+        );
+        rDiamond.rotation.z = Math.PI / 4;
+        rightReticleGroup.add(rDiamond);
+        rightReticleGroup.add(new THREE.Mesh(
+          new THREE.RingGeometry(0.036, 0.041, 8),
+          new THREE.MeshBasicMaterial({ color: 0x0284c7, transparent: true, opacity: 0.85, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })
+        ));
+        ringsGroup.add(rightReticleGroup);
+
+        const orbitNodes = [];
+        for (let i = 0; i < 4; i++) {
+          const nodeMesh = new THREE.Mesh(
+            new THREE.OctahedronGeometry(0.016, 0),
+            new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? 0x00ffff : 0x38bdf8, wireframe: true })
+          );
+          ringsGroup.add(nodeMesh);
+          orbitNodes.push({
+            mesh: nodeMesh,
+            radius: 0.30 + (i % 2) * 0.06,
+            speed: 0.55 + i * 0.2,
+            offset: (i * Math.PI * 2) / 4,
+            tilt: (i * Math.PI) / 5
+          });
+        }
+
+        const pCount = 160;
+        const pGeom = new THREE.BufferGeometry();
+        const pPos = new Float32Array(pCount * 3);
+        for (let i = 0; i < pCount * 3; i += 3) {
+          const r = 0.38 + Math.random() * 0.7;
+          const theta = Math.random() * Math.PI * 2;
+          const phi = (Math.random() - 0.5) * Math.PI;
+          pPos[i] = r * Math.cos(phi) * Math.sin(theta);
+          pPos[i + 1] = r * Math.sin(phi);
+          pPos[i + 2] = r * Math.cos(phi) * Math.cos(theta);
+        }
+        pGeom.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+        const particles = new THREE.Points(pGeom, new THREE.PointsMaterial({ color: 0x00f3ff, size: 0.008, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending }));
+        scene.add(particles);
+
+        let headMesh = null;
+        let morphDict = null;
+        let morphInfluences = null;
+
+        if (typeof THREE.GLTFLoader !== 'undefined' && config.modelUrl) {
+          const loader = new THREE.GLTFLoader();
+          loader.load(
+            config.modelUrl,
+            (gltf) => {
+              const model = gltf.scene;
+              model.traverse((child) => {
+                if (child.name === 'Wolf3D_Glasses') child.visible = false;
+                if (child.name === 'Wolf3D_Outfit_Bottom') child.visible = false;
+                if (child.name === 'Wolf3D_Outfit_Footwear') child.visible = false;
+                if (child.name === 'Wolf3D_Body') child.visible = false;
+                if (child.name === 'Wolf3D_Outfit_Top') child.visible = false;
+
+                if (child.name === 'Wolf3D_Head') {
+                  headMesh = child;
+                  morphDict = child.morphTargetDictionary;
+                  morphInfluences = child.morphTargetInfluences;
+                }
+
+                if (child.isMesh && child.material) {
+                  child.material.roughness = 0.52;
+                  child.material.metalness = 0.18;
+                  if (child.material.map) child.material.map.encoding = THREE.sRGBEncoding;
+                  if (child.material.color) {
+                    child.material.color.multiply(new THREE.Color(0.94, 0.97, 1.0));
+                  }
+                }
+              });
+
+              if (headMesh) {
+                const box = new THREE.Box3().setFromObject(headMesh);
+                const center = new THREE.Vector3();
+                box.getCenter(center);
+                model.position.set(-center.x, -center.y, -center.z);
+              }
+
+              headPivot.add(model);
+            },
+            undefined,
+            (err) => console.warn('Avatar notice:', err)
+          );
+        }
+
+        let targetRotX = 0, targetRotY = 0;
+        let curX = 0, curY = 0;
+        let isCursorOverCanvas = false;
+
+        const onMouseMove = (e) => {
+          const cx = window.innerWidth / 2;
+          const cy = window.innerHeight / 2;
+          targetRotY = ((e.clientX - cx) / cx) * 0.38;
+          targetRotX = -((e.clientY - cy) / cy) * 0.32;
+        };
+        window.addEventListener('mousemove', onMouseMove, { passive: true });
+
+        const onMouseEnter = () => { isCursorOverCanvas = true; };
+        const onMouseLeave = () => { isCursorOverCanvas = false; };
+        container.addEventListener('mouseenter', onMouseEnter);
+        container.addEventListener('mouseleave', onMouseLeave);
+
+        let clock = 0;
+        let animId;
+
+        function animate() {
+          animId = requestAnimationFrame(animate);
+          clock += 0.016;
+
+          curX += (targetRotX - curX) * 0.06;
+          curY += (targetRotY - curY) * 0.06;
+
+          headPivot.rotation.y = Math.sin(clock * 0.5) * 0.12 + curY;
+          headPivot.rotation.x = Math.sin(clock * 0.7) * 0.025 + curX;
+          headPivot.position.y = Math.sin(clock * 1.4) * 0.02 + (curX * 0.04);
+
+          const ringSpeedMult = isCursorOverCanvas ? 1.5 : 1.0;
+          centerSegGroup.rotation.z += 0.007 * ringSpeedMult;
+          hexShield.rotation.z += 0.004 * ringSpeedMult;
+          octRing.rotation.z -= 0.0035 * ringSpeedMult;
+
+          leftReticleGroup.rotation.z += 0.012 * ringSpeedMult;
+          rightReticleGroup.rotation.z -= 0.01 * ringSpeedMult;
+
+          orbitNodes.forEach((node) => {
+            const a = clock * node.speed + node.offset;
+            node.mesh.position.x = Math.cos(a) * node.radius;
+            node.mesh.position.y = Math.sin(a) * Math.cos(node.tilt) * node.radius;
+            node.mesh.position.z = Math.sin(a) * Math.sin(node.tilt) * node.radius * 0.6;
+            node.mesh.rotation.x += 0.03;
+            node.mesh.rotation.y += 0.04;
+          });
+
+          particles.rotation.y -= 0.001;
+
+          const cursorUpFactor = Math.max(0, curX * 2.8);
+          cyanRim.intensity = 2.8 + (isCursorOverCanvas ? 1.2 : 0) + (cursorUpFactor * 0.8);
+          keyLight.intensity = 2.6 + (isCursorOverCanvas ? 0.6 : 0);
+
+          if (morphDict && morphInfluences) {
+            const visAA = morphDict['viseme_aa'];
+            const visO = morphDict['viseme_O'];
+            const talkCycle = Math.sin(clock * 2.8);
+            if (talkCycle > 0.4) {
+              if (visAA !== undefined) morphInfluences[visAA] = (talkCycle - 0.4) * 0.35;
+              if (visO !== undefined) morphInfluences[visO] = (talkCycle - 0.4) * 0.2;
+            } else {
+              if (visAA !== undefined) morphInfluences[visAA] = 0;
+              if (visO !== undefined) morphInfluences[visO] = 0;
+            }
+          }
+
+          renderer.render(scene, camera);
+        }
+        animate();
+
+        const onResize = () => {
+          if (!container) return;
+          camera.aspect = container.clientWidth / container.clientHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(container.clientWidth, container.clientHeight);
+        };
+        window.addEventListener('resize', onResize);
+
+        return () => {
+          cancelAnimationFrame(animId);
+          window.removeEventListener('mousemove', onMouseMove);
+          container.removeEventListener('mouseenter', onMouseEnter);
+          container.removeEventListener('mouseleave', onMouseLeave);
+          window.removeEventListener('resize', onResize);
+        };
+      }, []);
+
+      useEffect(() => {
+        if (headPivotRef.current) {
+          headPivotRef.current.position.z = -Math.min(scrollY * 0.0008, 0.25);
+        }
+      }, [scrollY]);
+
+      return (
+        <div className="visual-3d-wrap" ref={containerRef} id="visual">
+          <canvas ref={canvasRef} className="visual-canvas" />
+          <div className="floating-tag">✦ LIVE MALE FORENSIC AGENT <span>● ACTIVE</span></div>
+          <div className="orb-label">
+            <b>AI TELEMETRY / ONLINE</b>
+            <small>Boy Model v3.4 · Real-Time Video Stream</small>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================================
+    // COMPONENT: HERO SECTION
+    // ========================================================
+    function HeroSection({ scrollY }) {
+      return (
+        <section className="hero">
+          <div className="hero-copy">
+            <div className="eyebrow">
+              <span className="pulse"></span> TRUTHLENS V5.1 MULTIMODAL FORENSIC INTELLIGENCE
+            </div>
+            <h1>
+              See Beyond The Surface.<br />
+              <span className="gradient">Unmask Synthetic Media.</span><br />
+              Zero Black-Box.
+            </h1>
+            <p>
+              Interrogate digital evidence across <strong>Image, Video, Audio, and Text</strong>. Detect deepfakes, forensic splice anomalies, and voice clones with cryptographic SHA-256 chain of custody and transparent mathematical indicators.
+            </p>
+            <div className="actions">
+              <a href={config.loginUrl} className="btn primary" id="heroLoginBtn">
+                Enter Investigation Portal ↗
+              </a>
+              <a href="#scanner" className="btn secondary">
+                Try Live Evidence Scanner
+              </a>
+            </div>
+            <div className="trust">
+              <span><i>✦</i> 100% Air-Gapped Local Engine</span>
+              <span><i>⌁</i> SHA-256 Provenance</span>
+              <span><i>◈</i> Verified PDF Dossier</span>
+            </div>
+          </div>
+
+          <Live3DBoyFaceAvatar scrollY={scrollY} />
+          <div className="scrollhint">SCROLL TO EXPLORE</div>
+        </section>
+      );
+    }
+
+    // ========================================================
+    // COMPONENT: 4 FORENSIC MODALITIES PILLARS (SCROLL REVEAL)
+    // ========================================================
+    function ModalitiesSection() {
+      return (
+        <section className="content" id="modalities">
+          <div className="section-head reveal-on-scroll">
+            <div className="eyebrow"><span className="pulse"></span> 4 MODALITY PILLARS</div>
+            <h2>Full-Spectrum <span className="gradient">Deepfake Detection.</span></h2>
+            <p>Physical signal extraction and neural artifact inspection across all four media dimensions.</p>
+          </div>
+          <div className="cards">
+            <article className="card reveal-on-scroll delay-100">
+              <div className="ico" title="Optical Aperture & Sensor Noise Reticle">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="ico-svg">
+                  <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+                  <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+                  <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+                  <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+                  <circle cx="12" cy="12" r="3.8" strokeWidth="1.8" />
+                  <circle cx="12" cy="12" r="1.4" fill="currentColor" />
+                  <line x1="12" y1="2" x2="12" y2="4.5" />
+                  <line x1="12" y1="19.5" x2="12" y2="22" />
+                  <line x1="2" y1="12" x2="4.5" y2="12" />
+                  <line x1="19.5" y1="12" x2="22" y2="12" />
+                </svg>
+              </div>
+              <h3>Image Forensics</h3>
+              <p>Error Level Analysis (ELA), frequency domain noise variance, clone-detection heatmaps, and JPEG quantization table mismatch.</p>
+              <span className="card-tag">ELA &amp; EXIF ANOMALIES</span>
+            </article>
+
+            <article className="card reveal-on-scroll delay-200">
+              <div className="ico" title="Temporal Video Keyframe & Optical Flow Scanner">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="ico-svg">
+                  <rect x="2.5" y="4" width="19" height="16" rx="4" strokeWidth="1.8" />
+                  <polygon points="10,8.8 16,12 10,15.2" fill="rgba(0, 243, 255, 0.35)" strokeWidth="1.8" strokeLinejoin="round" />
+                  <line x1="6.5" y1="4" x2="6.5" y2="6.5" />
+                  <line x1="17.5" y1="4" x2="17.5" y2="6.5" />
+                  <line x1="6.5" y1="17.5" x2="6.5" y2="20" />
+                  <line x1="17.5" y1="17.5" x2="17.5" y2="20" />
+                  <line x1="2.5" y1="12" x2="4" y2="12" />
+                  <line x1="20" y1="12" x2="21.5" y2="12" />
+                </svg>
+              </div>
+              <h3>Video Deepfake</h3>
+              <p>Frame-by-frame blendshape jitter, facial landmark boundary warping, temporal optical flow discontinuities, and eye-blink rate anomalies.</p>
+              <span className="card-tag">TEMPORAL FLICKER DETECTOR</span>
+            </article>
+
+            <article className="card reveal-on-scroll delay-300">
+              <div className="ico" title="Harmonic Equalizer & Voiceprint Spectrum">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ico-svg">
+                  <line x1="3" y1="10" x2="3" y2="14" />
+                  <line x1="6.5" y1="6" x2="6.5" y2="18" />
+                  <line x1="10" y1="3.5" x2="10" y2="20.5" />
+                  <line x1="14" y1="7" x2="14" y2="17" />
+                  <line x1="17.5" y1="4.5" x2="17.5" y2="19.5" />
+                  <line x1="21" y1="9.5" x2="21" y2="14.5" />
+                  <circle cx="10" cy="12" r="1.3" fill="currentColor" />
+                  <circle cx="17.5" cy="12" r="1.3" fill="currentColor" />
+                </svg>
+              </div>
+              <h3>Audio Biometrics</h3>
+              <p>Mel-spectrogram spectral flux, vocoder harmonic distortion, synthetic voice cloning phase cancellation, and acoustic timbre profiling.</p>
+              <span className="card-tag">VOICE CLONE HARMONICS</span>
+            </article>
+
+            <article className="card reveal-on-scroll delay-400">
+              <div className="ico" title="Cryptographic SHA-256 Chain of Custody Dossier">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="ico-svg">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="8" y1="12" x2="12" y2="12" />
+                  <line x1="8" y1="16" x2="12" y2="16" />
+                  <path d="M16 13l2.5 2.5-2.5 2.5-2.5-2.5z" fill="rgba(0, 243, 255, 0.35)" stroke="#00f3ff" strokeWidth="1.5" />
+                </svg>
+              </div>
+              <h3>Text &amp; Cross-Modal</h3>
+              <p>Correlates transcript claims with acoustic timeline, verified reference comparisons, and court-admissible PDF dossier synthesis.</p>
+              <span className="card-tag">SHA-256 CHAIN OF CUSTODY</span>
+            </article>
+          </div>
+        </section>
+      );
+    }
+
+    // ========================================================
+    // COMPONENT: CHART.JS INTERACTIVE FORENSIC TELEMETRY
+    // ========================================================
+    function TelemetryChartSection() {
+      const [activeMetric, setActiveMetric] = useState('accuracy');
+      const chartRef = useRef(null);
+      const chartInstanceRef = useRef(null);
+
+      useEffect(() => {
+        if (!chartRef.current || typeof Chart === 'undefined') return;
+
+        if (chartInstanceRef.current) {
+          chartInstanceRef.current.destroy();
+        }
+
+        const ctx = chartRef.current.getContext('2d');
+
+        const datasets = {
+          accuracy: {
+            type: 'line',
+            labels: ['Image ELA', 'Facial Warping', 'Audio Vocoder', 'Temporal Flow', 'Text Cross-Modal', 'Overall Synthesis'],
+            data: [99.4, 98.8, 99.1, 98.6, 99.7, 99.2],
+            label: 'Forensic Detection Accuracy (%)',
+            borderColor: '#00f3ff',
+            backgroundColor: 'rgba(0, 243, 255, 0.12)',
+            fill: true,
+            tension: 0.38
+          },
+          latency: {
+            type: 'bar',
+            labels: ['SHA-256 Hash', 'ELA Transform', 'Optical Flow', 'Mel-Spectrogram', 'Correlation Engine'],
+            data: [12, 28, 48, 34, 19],
+            label: 'Local Processing Latency (Milliseconds)',
+            borderColor: '#0ea5e9',
+            backgroundColor: 'rgba(14, 165, 233, 0.45)',
+            fill: false
+          },
+          reduction: {
+            type: 'line',
+            labels: ['Baseline V1', 'V2 Ingest', 'V3 Multimodal', 'V4 Deepfake Net', 'V5.1 Air-Gapped'],
+            data: [18.5, 12.2, 6.4, 2.1, 0.4],
+            label: 'False Verdict Rate Reduction (%)',
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+            fill: true,
+            tension: 0.35
+          }
+        };
+
+        const active = datasets[activeMetric];
+
+        chartInstanceRef.current = new Chart(ctx, {
+          type: active.type,
+          data: {
+            labels: active.labels,
+            datasets: [{
+              label: active.label,
+              data: active.data,
+              borderColor: active.borderColor,
+              backgroundColor: active.backgroundColor,
+              fill: active.fill,
+              tension: active.tension || 0,
+              borderWidth: 2,
+              pointBackgroundColor: active.borderColor,
+              pointRadius: 4,
+              pointHoverRadius: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                labels: {
+                  color: '#94a7bd',
+                  font: { family: 'JetBrains Mono', size: 12 }
+                }
+              },
+              tooltip: {
+                backgroundColor: 'rgba(4, 10, 22, 0.95)',
+                titleColor: '#00f3ff',
+                bodyColor: '#edf5ff',
+                borderColor: 'rgba(0, 243, 255, 0.3)',
+                borderWidth: 1
+              }
+            },
+            scales: {
+              x: {
+                grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                ticks: { color: '#7b91ad', font: { family: 'JetBrains Mono', size: 11 } }
+              },
+              y: {
+                grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                ticks: { color: '#7b91ad', font: { family: 'JetBrains Mono', size: 11 } }
+              }
+            }
+          }
+        });
+
+        return () => {
+          if (chartInstanceRef.current) chartInstanceRef.current.destroy();
+        };
+      }, [activeMetric]);
+
+      return (
+        <section className="content" id="telemetry">
+          <div className="section-head reveal-on-scroll">
+            <div className="eyebrow"><span className="pulse"></span> LIVE BENCHMARKS · CHART.JS</div>
+            <h2>Mathematical <span className="gradient">Forensic Telemetry.</span></h2>
+            <p>Real-time precision metrics: multi-modal detection accuracy, sub-50ms signal processing, and low false positives.</p>
+          </div>
+
+          <div className="chart-card reveal-on-scroll delay-100">
+            <div className="chart-controls">
+              <div className="chart-title-area">
+                <b>TRUTHLENS FORENSIC BENCHMARK TELEMETRY</b>
+                <small>ENGINE STATUS: 100% LOCAL AIR-GAPPED · ZERO CLOUD LEAK</small>
+              </div>
+
+              <div className="chart-toggle-group">
+                <button
+                  className={`chart-toggle-btn ${activeMetric === 'accuracy' ? 'active' : ''}`}
+                  onClick={() => setActiveMetric('accuracy')}
+                >
+                  Accuracy (%)
+                </button>
+                <button
+                  className={`chart-toggle-btn ${activeMetric === 'latency' ? 'active' : ''}`}
+                  onClick={() => setActiveMetric('latency')}
+                >
+                  Latency (ms)
+                </button>
+                <button
+                  className={`chart-toggle-btn ${activeMetric === 'reduction' ? 'active' : ''}`}
+                  onClick={() => setActiveMetric('reduction')}
+                >
+                  False Positive Reduction
+                </button>
+              </div>
+            </div>
+
+            <div className="chart-canvas-wrap">
+              <canvas ref={chartRef} />
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    // ========================================================
+    // COMPONENT: INTERACTIVE EVIDENCE SCANNER SIMULATION
+    // ========================================================
+    function InteractiveScannerDemo() {
+      const [modality, setModality] = useState('image');
+      const [status, setStatus] = useState('Waiting for evidence stream…');
+      const [btnText, setBtnText] = useState('▶ Run Forensic Scan');
+      const [isScanning, setIsScanning] = useState(false);
+      const [verdictReady, setVerdictReady] = useState(false);
+
+      const modalitiesConfig = {
+        image: {
+          file: 'evidence_suspect_face_01.jpg',
+          beforeTitle: 'ORIGINAL INGESTION (JPEG)',
+          beforeDesc: 'High-resolution viral portrait with apparent uniform texture.',
+          afterTitle: 'FORENSIC ELA HEATMAP RESIDUAL',
+          afterText: '⚠ HIGH FREQUENCY COMPRESSION RESIDUAL: Boundary mismatch detected along orbital bone. Quantization table inconsistency flags localized splice.',
+          verdict: '✓ ANOMALY DETECTED: 98.7% Confidence (Image ELA Splice)'
+        },
+        video: {
+          file: 'interview_clip_deepfake.mp4',
+          beforeTitle: 'RAW VIDEO FRAME STREAM (29.97 FPS)',
+          beforeDesc: 'Temporal sequence showing speech synchronization.',
+          afterTitle: 'OPTICAL FLOW & BLENDSHAPE JITTER',
+          afterText: '⚠ DISCONTINUITY AT 02.4s: Facial boundary warp vector exceeds threshold. Eye-blink frequency 0.1Hz indicates synthetic generation.',
+          verdict: '✓ ANOMALY DETECTED: 99.1% Confidence (Synthetic Blendshape)'
+        },
+        audio: {
+          file: 'voicemail_clone_sample.wav',
+          beforeTitle: 'ACOUSTIC WAVEFORM AUDIO',
+          beforeDesc: 'Isolated telephone speech sample.',
+          afterTitle: 'MEL-SPECTROGRAM HARMONIC FLUX',
+          afterText: '⚠ SYNTHETIC VOCODER ARTIFACT: Phase cancellation at 3.8kHz. Pitch contour shows unnatural robotic step quantization.',
+          verdict: '✓ ANOMALY DETECTED: 98.9% Confidence (Acoustic Voice Clone)'
+        }
+      };
+
+      const current = modalitiesConfig[modality];
+
+      const runScan = () => {
+        if (isScanning) return;
+        setIsScanning(true);
+        setVerdictReady(false);
+        setBtnText('⟳ Scanning evidence…');
+        setStatus('Computing SHA-256 cryptographic digest…');
+
+        setTimeout(() => {
+          setStatus('Extracting localized signal residuals & frequency domain…');
+          setBtnText('⟳ Analyzing artifacts…');
+        }, 1200);
+
+        setTimeout(() => {
+          setStatus('Correlating multi-modal boundary vectors…');
+          setBtnText('⟳ Correlating…');
+        }, 2400);
+
+        setTimeout(() => {
+          setStatus(current.verdict);
+          setBtnText('✓ Re-run Scan');
+          setVerdictReady(true);
+          setIsScanning(false);
+        }, 3800);
+      };
+
+      return (
+        <section className="content" id="scanner">
+          <div className="section-head reveal-on-scroll">
+            <div className="eyebrow"><span className="pulse"></span> LIVE ENGINE SIMULATION</div>
+            <h2>Watch Evidence Meet <span className="gradient">Mathematical Proof.</span></h2>
+            <p>Interrogate sample evidence across Image, Video, or Audio. The engine surfaces localized anomalies with verifiable proof.</p>
+          </div>
+
+          <div className={`scanner-demo reveal-on-scroll delay-100 ${isScanning ? 'is-scanning' : ''}`}>
+            <div className="scanner-head">
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <span style={{ color: '#00f3ff', fontWeight: 700 }}>◈ TRUTHLENS DISSECTOR</span>
+                <span>/ {current.file}</span>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {['image', 'video', 'audio'].map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => { setModality(m); setVerdictReady(false); setStatus('Waiting for evidence stream…'); }}
+                    style={{
+                      background: modality === m ? 'rgba(0, 243, 255, 0.2)' : 'transparent',
+                      border: modality === m ? '1px solid #00f3ff' : '1px solid var(--line)',
+                      color: modality === m ? '#00f3ff' : '#8ca2bf',
+                      padding: '4px 10px',
+                      borderRadius: '5px',
+                      fontSize: '10.5px',
+                      fontFamily: 'JetBrains Mono',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {m.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="scanner-grid">
+              <div className="scanner-box">
+                <div className="box-title">{current.beforeTitle}</div>
+                <div className="evidence-preview-visual">
+                  <div className="scan-beam"></div>
+                  <span>◈ INPUT EVIDENCE FILE</span>
+                  <small style={{ color: '#64748b', marginTop: '6px' }}>{current.file}</small>
+                </div>
+                <p style={{ color: '#8ca2bf', fontSize: '12.5px', marginTop: '16px', lineHeight: '1.6' }}>
+                  {current.beforeDesc}
+                </p>
+              </div>
+
+              <div className="scanner-box">
+                <div className="box-title">{current.afterTitle}</div>
+                <div className="evidence-preview-visual" style={{ borderColor: verdictReady ? '#ef4444' : 'rgba(0, 243, 255, 0.25)' }}>
+                  <div className="scan-beam"></div>
+                  <span style={{ color: verdictReady ? '#f87171' : '#00f3ff' }}>
+                    {verdictReady ? '⚠ ANOMALY HEATMAP GENERATED' : 'WAITING FOR SCAN PASS'}
+                  </span>
+                  <small style={{ color: '#64748b', marginTop: '6px' }}>
+                    {verdictReady ? 'SHA-256: 7a8f12...e49c' : 'STATUS: READY'}
+                  </small>
+                </div>
+                <p style={{ color: verdictReady ? '#fca5a5' : '#8ca2bf', fontSize: '12.5px', marginTop: '16px', lineHeight: '1.6' }}>
+                  {verdictReady ? current.afterText : 'Click "Run Forensic Scan" below to trigger automated signal extraction and residual analysis.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="scanner-testrow">
+              <span style={{ color: verdictReady ? '#34d399' : '#00f3ff' }}>{status}</span>
+              <button className="run-scan-btn" onClick={runScan}>
+                {btnText}
+              </button>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    // ========================================================
+    // COMPONENT: PIPELINE & FOOTER
+    // ========================================================
+    function PipelineSection() {
+      return (
+        <section className="content" id="pipeline">
+          <div className="section-head reveal-on-scroll">
+            <div className="eyebrow">CHAIN OF CUSTODY LIFECYCLE</div>
+            <h2>Transparent <span className="gradient">Investigation Workflow.</span></h2>
+          </div>
+          <div className="pipeline-grid">
+            <div className="pipeline-card reveal-on-scroll delay-100">
+              <div className="pipeline-badge">PHASE 01</div>
+              <h4>Cryptographic Digest</h4>
+              <p>Every file is hashed with SHA-256 on ingest to establish unbroken legal chain of custody.</p>
+            </div>
+            <div className="pipeline-card reveal-on-scroll delay-200">
+              <div className="pipeline-badge">PHASE 02</div>
+              <h4>Signal Extraction</h4>
+              <p>Error level residuals, optical frame vectors, and mel-frequency spectra are extracted locally.</p>
+            </div>
+            <div className="pipeline-card reveal-on-scroll delay-300">
+              <div className="pipeline-badge">PHASE 03</div>
+              <h4>Cross-Modal Synthesis</h4>
+              <p>Findings across all evidence files are synthesized with transparent methodological citations.</p>
+            </div>
+            <div className="pipeline-card reveal-on-scroll delay-400">
+              <div className="pipeline-badge">PHASE 04</div>
+              <h4>Dossier PDF Export</h4>
+              <p>Court-ready PDF report with timestamped frame charts, limitation disclosures, and metrics.</p>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    function FooterCTA() {
+      return (
+        <section className="footercta reveal-on-scroll">
+          <div className="eyebrow"><span className="pulse"></span> VERIFIED FORENSIC ACCESS</div>
+          <h2>Ready to Begin Your Investigation?</h2>
+          <p>Access active cases, upload multi-modal evidence, and run air-gapped forensic neural inference.</p>
+          <a href={config.loginUrl} className="btn primary" style={{ padding: '16px 36px', fontSize: '15px' }}>
+            Get Started
+          </a>
+        </section>
+      );
+    }
+
+    function Footer() {
+      return (
+        <footer className="footer">
+          <div className="brand tl-brand" style={{ fontSize: '14px', gap: '8px' }}>
+            <img src={config.wordmarkUrl} className="tl-brand-image" style={{ width: '132px', maxHeight: '26px' }} alt="TruthLens" />
+          </div>
+          <span>Evidence-Led Multimodal Forensics · Results are verifiable indicators</span>
+          <a href={config.loginUrl} style={{ color: '#00f3ff', textDecoration: 'none', fontWeight: 600 }}>
+            Analyst Login ↗
+          </a>
+        </footer>
+      );
+    }
+
+    // ========================================================
+    // ROOT APP COMPONENT (SCROLL OBSERVER)
+    // ========================================================
+    function App() {
+      const [scrollY, setScrollY] = useState(0);
+
+      useEffect(() => {
+        const handleScroll = () => {
+          setScrollY(window.scrollY);
+        };
+        window.addEventListener('scroll', handleScroll, { passive: true });
+
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('is-visible');
+            }
+          });
+        }, {
+          threshold: 0.15,
+          rootMargin: '0px 0px -40px 0px'
+        });
+
+        const elements = document.querySelectorAll('.reveal-on-scroll');
+        elements.forEach((el) => observer.observe(el));
+
+        return () => {
+          window.removeEventListener('scroll', handleScroll);
+          elements.forEach((el) => observer.unobserve(el));
+        };
+      }, []);
+
+      return (
+        <React.Fragment>
+          <Navbar />
+          <main>
+            <HeroSection scrollY={scrollY} />
+            <ModalitiesSection />
+            <TelemetryChartSection />
+            <InteractiveScannerDemo />
+            <PipelineSection />
+            <FooterCTA />
+          </main>
+          <Footer />
+        </React.Fragment>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+  {% endverbatim %}
+</body>
+</html>

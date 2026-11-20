@@ -1,0 +1,67 @@
+{% extends 'investigations/base.html' %}
+{% block content %}
+<div class="header-section">
+  <div class="header-left">
+    <div class="header-title-wrap">
+      <span class="header-icon">👤</span>
+      <div>
+        <h1 class="header-title">Analyst Profile</h1>
+        <p class="header-subtitle">View your account details and session information.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if user.is_authenticated %}
+<section class="control-panel">
+  <div class="panel-header">
+    <span class="panel-icon">◈</span>
+    <div>
+      <h2 class="panel-title">Account Details</h2>
+      <p class="panel-subtitle">Information for the signed-in analyst</p>
+    </div>
+  </div>
+  <div class="profile-details">
+    <div class="profile-item">
+      <span class="profile-label">Username</span>
+      <strong class="profile-value">{{ user.username }}</strong>
+    </div>
+    <div class="profile-item">
+      <span class="profile-label">Full Name</span>
+      <strong class="profile-value">{{ user.get_full_name|default:"Not provided" }}</strong>
+    </div>
+    <div class="profile-item">
+      <span class="profile-label">Email</span>
+      <strong class="profile-value">{{ user.email|default:"Not provided" }}</strong>
+    </div>
+    <div class="profile-item">
+      <span class="profile-label">Member Since</span>
+      <strong class="profile-value">{{ user.date_joined|date:"F j, Y" }}</strong>
+    </div>
+    <div class="profile-item">
+      <span class="profile-label">Last Login</span>
+      <strong class="profile-value">{% if user.last_login %}{{ user.last_login|date:"F j, Y, g:i a" }}{% else %}Not available{% endif %}</strong>
+    </div>
+    <div class="profile-item">
+      <span class="profile-label">Account Status</span>
+      <strong class="profile-value">{% if user.is_active %}Active{% else %}Inactive{% endif %}</strong>
+    </div>
+  </div>
+</section>
+{% else %}
+<section class="control-panel">
+  <div class="panel-header">
+    <span class="panel-icon">◈</span>
+    <div>
+      <h2 class="panel-title">Sign In Required</h2>
+      <p class="panel-subtitle">No analyst account is currently signed in.</p>
+    </div>
+  </div>
+  <p class="panel-text">Sign in to view your account details.</p>
+  <div class="header-actions">
+    <a class="btn-action pill-primary" href="{% url 'login' %}">Sign In</a>
+    <a class="btn-action pill-blue" href="{% url 'register' %}">Create Account</a>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

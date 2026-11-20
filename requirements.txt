@@ -1,0 +1,20 @@
+
+Django>=6.0,<6.1
+gunicorn
+whitenoise
+
+# Image forensics
+Pillow>=10.0
+
+# Video forensics
+opencv-python-headless>=4.8
+
+# Audio forensics
+numpy>=1.26
+scipy>=1.10
+librosa>=0.10
+soundfile>=0.12
+matplotlib>=3.7
+
+# PDF report
+reportlab>=4.0

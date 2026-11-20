@@ -1,0 +1,691 @@
+{% extends 'investigations/base.html' %}
+{% block content %}
+
+<!-- Top Navigation & Actions Bar -->
+<div class="detail-nav-bar">
+  <a href="{% url 'dashboard' %}" class="btn-action pill-blue">
+    <span>←</span> Back to Dashboard
+  </a>
+  <div class="detail-nav-actions">
+    <div class="nav-confidence-pill {% if confidence_data.badge_class %}{{ confidence_data.badge_class }}{% else %}info{% endif %}">
+      <span class="hud-pulse-dot {% if confidence_data.badge_class %}{{ confidence_data.badge_class }}{% else %}info{% endif %}"></span>
+      <span class="pill-title">CONFIDENCE:</span>
+      <strong>{{ confidence_data.confidence|floatformat:1 }}%</strong>
+      <span class="pill-state">({{ confidence_data.verdict }})</span>
+    </div>
+    <a href="{% url 'report_pdf' case.id %}" class="btn-action pill-primary">
+      <span>↓</span> Export Signed PDF Report
+    </a>
+  </div>
+</div>
+
+<!-- Case Header Section with Upper-Right Confidence & Detection HUD -->
+<div class="header-section detail-header-wrap">
+  <div class="header-left">
+    <div class="case-badge-row">
+      <span class="badge-tag tag-cyan">CASE FILE // #{{ case.id|stringformat:'.8s' }}</span>
+      <span class="meta-date">Created {{ case.created_at|date:'d M Y · H:i' }} UTC</span>
+      <span class="meta-tag">{{ evidence|length }} Evidence Item(s) Processed</span>
+    </div>
+    <h1 class="header-title case-title-lg">{{ case.title }}</h1>
+  </div>
+
+  <!-- UPPER RIGHT CORNER FORENSIC CONFIDENCE & DETECTION HUD -->
+  <div class="header-right confidence-hud-card {% if confidence_data.badge_class %}hud-{{ confidence_data.badge_class }}{% else %}hud-info{% endif %}">
+    <div class="confidence-hud-header">
+      <div class="confidence-hud-title-wrap">
+        <span class="hud-pulse-dot {% if confidence_data.badge_class %}{{ confidence_data.badge_class }}{% else %}info{% endif %}"></span>
+        <span class="hud-title">DETECTION CONFIDENCE</span>
+      </div>
+      <span class="confidence-verdict-badge {% if confidence_data.badge_class %}{{ confidence_data.badge_class }}{% else %}info{% endif %}">
+        {% if confidence_data.verdict == 'REAL' %}
+          ✓ REAL / AUTHENTIC
+        {% elif confidence_data.verdict == 'AI EDITED' %}
+          ⚠ AI EDITED / DEEPFAKE
+        {% else %}
+          ◈ SCREENED EVIDENCE
+        {% endif %}
+      </span>
+    </div>
+
+    <div class="confidence-hud-body">
+      <!-- Radial Gauge Meter -->
+      <div class="radial-gauge-wrap">
+        <svg class="radial-gauge-svg" viewBox="0 0 88 88">
+          <circle class="gauge-bg" cx="44" cy="44" r="36"></circle>
+          <circle class="gauge-progress {% if confidence_data.badge_class %}{{ confidence_data.badge_class }}{% else %}info{% endif %}"
+                  cx="44" cy="44" r="36"
+                  stroke-dasharray="226.2"
+                  stroke-dashoffset="{{ confidence_data.stroke_offset }}"></circle>
+        </svg>
+        <div class="radial-gauge-center">
+          <span class="gauge-num">{{ confidence_data.confidence|floatformat:1 }}<small>%</small></span>
+          <span class="gauge-label">SCORE</span>
+        </div>
+      </div>
+
+      <!-- Probability Distribution Bars -->
+      <div class="probability-split-wrap">
+        <div class="prob-row">
+          <span class="prob-name">REAL CAMERA:</span>
+          <span class="prob-val val-real">{{ confidence_data.real_probability|floatformat:1 }}%</span>
+        </div>
+        <div class="prob-track">
+          <div class="prob-fill fill-real" style="width: {{ confidence_data.real_probability }}%;"></div>
+        </div>
+
+        <div class="prob-row" style="margin-top: 8px;">
+          <span class="prob-name">AI / DEEPFAKE:</span>
+          <span class="prob-val val-ai">{{ confidence_data.ai_probability|floatformat:1 }}%</span>
+        </div>
+        <div class="prob-track">
+          <div class="prob-fill fill-ai" style="width: {{ confidence_data.ai_probability }}%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Defense Basis / Provenance Explanation -->
+    <div class="confidence-defense-footer">
+      <div class="defense-badge-row">
+        <span class="defense-tag">DEFENDS ON //</span>
+        <strong class="defense-model" title="{{ confidence_data.detected_model }}">{{ confidence_data.detected_model }}</strong>
+      </div>
+      <p class="defense-desc">{{ confidence_data.defense_basis }}</p>
+    </div>
+  </div>
+</div>
+
+<!-- Overall Assessment Diagnostic Banner (Synchronized with Detection Confidence) -->
+<div class="assessment-banner {% if confidence_data.badge_class %}banner-{{ confidence_data.badge_class }}{% endif %}">
+  <div class="assessment-left">
+    <div class="assessment-icon-wrap {% if confidence_data.badge_class %}{{ confidence_data.badge_class }}{% endif %}">
+      <span class="assessment-icon">
+        {% if confidence_data.verdict == 'REAL' %}✓{% elif confidence_data.verdict == 'AI EDITED' %}⚠{% else %}◈{% endif %}
+      </span>
+    </div>
+    <div class="assessment-info">
+      <span class="assessment-caption">OVERALL FORENSIC VERDICT // {{ confidence_data.confidence|floatformat:1 }}% CONFIDENCE</span>
+      <h2 class="assessment-verdict">
+        {% if confidence_data.verdict == 'REAL' %}
+          REAL / AUTHENTIC CAMERA MEDIA
+        {% elif confidence_data.verdict == 'AI EDITED' %}
+          AI EDITED / SYNTHETIC MANIPULATION DETECTED
+        {% else %}
+          {{ case.findings.verdict }}
+        {% endif %}
+      </h2>
+      <p class="assessment-desc">
+        {% if confidence_data.defense_basis %}
+          Defended by: {{ confidence_data.defense_basis }}
+        {% else %}
+          {{ case.findings.model_status }}
+        {% endif %}
+      </p>
+    </div>
+  </div>
+  <div class="assessment-right">
+    {% if confidence_data.verdict == 'REAL' %}
+      <span class="badge-tag tag-green review-pill">✓ PROVENANCE DEFENDED</span>
+    {% elif confidence_data.verdict == 'AI EDITED' %}
+      <span class="badge-tag tag-red review-pill">⚠ SYNTHETIC ARTIFACTS CONFIRMED</span>
+    {% else %}
+      <span class="badge-tag tag-amber review-pill">HUMAN REVIEW ADVISED</span>
+    {% endif %}
+  </div>
+</div>
+
+<!-- AI Inference Control Panel -->
+<div class="control-panel">
+  <div class="panel-header">
+    <span class="panel-icon">⚙</span>
+    <div>
+      <h3 class="panel-title">AI Model & Neural Inference Control</h3>
+      <p class="panel-subtitle">Experimental deepfake neural classification engine</p>
+    </div>
+  </div>
+  
+  {% if messages %}
+    {% for message in messages %}
+      <div class="notice-box">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  {% if ai_model_configured %}
+    <p class="panel-text">Configured model: <code>{{ ai_model_name }}</code>. Predictions are experimental screening indicators.</p>
+    <form method="post" action="{% url 'rerun_ai' case.id %}" style="margin-top:12px;">
+      {% csrf_token %}
+      <button class="btn-analyze btn-gradient-photo" type="submit" style="max-width:280px;">
+        Run AI on Existing Evidence ↗
+      </button>
+    </form>
+  {% else %}
+    <p class="panel-text">
+      AI inference pipeline is in local screening mode. Set <code>TRUTHLENS_IMAGE_MODEL</code> to activate deep learning classification. Full signal-level heuristics and Fourier visualizations remain active.
+    </p>
+  {% endif %}
+</div>
+
+<!-- Section 01: Evidence Breakdown -->
+<div class="section-title-row" style="margin-top:32px;">
+  <div>
+    <h2 class="section-heading">
+      <span class="icon-disc">01</span> / EVIDENCE ARTIFACT ANALYSIS
+    </h2>
+    <p class="section-sub">Detailed signal breakdown, SHA-256 fingerprint, and spectral metrics per evidence item.</p>
+  </div>
+  <span class="live-pill">{{ evidence|length }} Artifacts</span>
+</div>
+
+<div class="evidence-list">
+  {% for ev in evidence %}
+  <article class="evidence-card">
+    <!-- Card Top Bar -->
+    <div class="evidence-header">
+      <div class="evidence-title-group">
+        {% if ev.kind == 'image' %}
+          <span class="badge-tag tag-cyan">PHOTO EVIDENCE</span>
+        {% elif ev.kind == 'video' %}
+          <span class="badge-tag tag-purple">VIDEO EVIDENCE</span>
+        {% elif ev.kind == 'audio' %}
+          <span class="badge-tag tag-amber">AUDIO EVIDENCE</span>
+        {% else %}
+          <span class="badge-tag tag-green">TEXT / TRANSCRIPT</span>
+        {% endif %}
+        <h3 class="evidence-name">{{ ev.original_name|default:'Submitted Text Statement' }}</h3>
+      </div>
+      <span class="evidence-size">{{ ev.size|filesizeformat }}</span>
+    </div>
+
+    <!-- SHA-256 Fingerprint -->
+    <div class="hash-box">
+      <span class="hash-label">SHA-256 FINGERPRINT:</span>
+      <code class="hash-code">{{ ev.sha256 }}</code>
+    </div>
+
+    {% if ev.analysis.error %}
+    <div class="error-banner" style="margin: 12px 0;">
+      <span>⚠</span> {{ ev.analysis.error }}
+    </div>
+    {% endif %}
+
+    <!-- Metrics Grid -->
+    {% if ev.analysis.metrics %}
+    <div class="metrics-section">
+      <div class="sub-caption">FORENSIC METRICS & SIGNAL TELEMETRY</div>
+      <div class="metrics-grid">
+        {% for key, value in ev.analysis.metrics.items %}
+        <div class="metric-box">
+          <span class="metric-key">{{ key|cut:'_'|upper }}</span>
+          <strong class="metric-val">{{ value }}</strong>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Forensic Visualizations (Waveform, ELA Image, Video Frames) -->
+    {% if ev.analysis.visualizations %}
+    <div class="visuals-section">
+      <div class="sub-caption">FORENSIC VISUALIZATIONS & SPECTROGRAMS</div>
+      <div class="visuals-grid">
+        {% for visual in ev.analysis.visualizations %}
+        <div class="visual-panel">
+          <h4 class="visual-title">{{ visual.title }}</h4>
+          <div class="visual-frame">
+            <img src="{{ visual.url }}" alt="{{ visual.title }}" loading="lazy" class="visual-img">
+          </div>
+          <p class="visual-desc">{{ visual.description }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Experimental AI Model Predictions -->
+    {% if ev.analysis.model_result %}
+    <div class="ai-model-box">
+      <div class="sub-caption">EXPERIMENTAL AI MODEL PREDICTIONS</div>
+      <p class="model-name">Engine: <code>{{ ev.analysis.model_result.model }}</code></p>
+      {% if ev.analysis.model_result.error %}
+        <p class="error-text">{{ ev.analysis.model_result.error }}</p>
+      {% else %}
+        {% for pred in ev.analysis.model_result.labels %}
+        <div class="score-row">
+          <span>{{ pred.label }}</span>
+          <strong>{{ pred.score|floatformat:3 }}</strong>
+        </div>
+        {% endfor %}
+        {% if ev.analysis.model_result.warning %}
+        <p class="warning-text">{{ ev.analysis.model_result.warning }}</p>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Observations & Findings -->
+    <div class="observations-section">
+      <div class="sub-caption">OBSERVATIONS & HEURISTIC SIGNALS</div>
+      {% for f in ev.analysis.findings %}
+      <div class="finding-row">
+        <span class="finding-dot {{ f.level }}"></span>
+        <div class="finding-body">
+          <strong class="finding-label">{{ f.label }}</strong>
+          <p class="finding-detail">{{ f.detail }}</p>
+          <small class="finding-method">METHOD // {{ f.method }}</small>
+        </div>
+      </div>
+      {% empty %}
+      <p class="muted-text">No anomalous indicators detected in this modality.</p>
+      {% endfor %}
+    </div>
+
+    <!-- Limitations Callout -->
+    {% if ev.analysis.limitations %}
+    <div class="limitations-box">
+      <span class="limitations-tag">METHODOLOGICAL LIMITATIONS</span>
+      {% for limitation in ev.analysis.limitations %}
+      <p class="limitations-text">• {{ limitation }}</p>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </article>
+  {% endfor %}
+</div>
+
+<!-- Section 02: Cross-Modal Review -->
+<div class="section-title-row" style="margin-top:36px;">
+  <div>
+    <h2 class="section-heading">
+      <span class="icon-disc">02</span> / CROSS-MODAL CORRELATION & CONTEXT
+    </h2>
+    <p class="section-sub">Cross-evidence synthesis, transcript-to-signal alignment, and multimodal corroboration.</p>
+  </div>
+</div>
+
+<div class="correlation-panel">
+  <div class="modalities-bar">
+    <span class="mod-label">INGESTED MODALITIES:</span>
+    {% for modality in case.findings.modalities %}
+      <span class="badge-tag tag-cyan">{{ modality|upper }}</span>
+    {% endfor %}
+  </div>
+
+  <div class="correlation-findings">
+    {% for f in case.findings.findings %}
+    <div class="finding-row">
+      <span class="finding-dot info"></span>
+      <div class="finding-body">
+        <strong class="finding-label">{{ f.label }}</strong>
+        <p class="finding-detail">{{ f.detail }}</p>
+      </div>
+    </div>
+    {% empty %}
+    <p class="muted-text">Add multiple modalities (e.g. video + audio or image + text) to enable cross-evidence corroboration.</p>
+    {% endfor %}
+  </div>
+
+  <div class="disclaimer-banner">
+    <span>⚠</span> Automated indicators are screening metrics and do not constitute absolute proof of manipulation. Confirm with primary provenance records and expert verification.
+  </div>
+</div>
+
+
+<!-- ==========================================================================
+     UPPER RIGHT CORNER CONFIDENCE & DETECTION HUD STYLES
+     ========================================================================== -->
+<style>
+  /* Header Layout Alignment */
+  .detail-header-wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 28px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  .header-left {
+    flex: 1;
+    min-width: 280px;
+  }
+
+  /* Nav Quick-Pill in Top Right Bar */
+  .nav-confidence-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    border: 1px solid rgba(0, 243, 255, 0.3);
+    background: rgba(4, 12, 26, 0.8);
+    backdrop-filter: blur(8px);
+  }
+  .nav-confidence-pill.success {
+    border-color: rgba(16, 185, 129, 0.45);
+    background: rgba(6, 25, 20, 0.85);
+    color: #10b981;
+  }
+  .nav-confidence-pill.danger {
+    border-color: rgba(239, 68, 68, 0.45);
+    background: rgba(28, 8, 12, 0.85);
+    color: #ef4444;
+  }
+  .nav-confidence-pill.info, .nav-confidence-pill.warning {
+    border-color: rgba(0, 243, 255, 0.4);
+    background: rgba(4, 15, 32, 0.85);
+    color: #00f3ff;
+  }
+  .nav-confidence-pill .pill-title {
+    color: #8fa6c2;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+  }
+  .nav-confidence-pill strong {
+    font-size: 13px;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .nav-confidence-pill .pill-state {
+    font-size: 10px;
+    opacity: 0.85;
+  }
+
+  /* Confidence HUD Card in Upper Right Corner */
+  .confidence-hud-card {
+    flex: 0 0 380px;
+    max-width: 440px;
+    background: linear-gradient(135deg, rgba(8, 20, 42, 0.94) 0%, rgba(4, 10, 24, 0.98) 100%);
+    border: 1px solid rgba(0, 243, 255, 0.35);
+    border-radius: 16px;
+    padding: 16px 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 24px rgba(0, 243, 255, 0.12), inset 0 0 16px rgba(0, 243, 255, 0.04);
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(14px);
+    transition: all 0.3s ease;
+  }
+
+  .confidence-hud-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #00f3ff, #10b981, #0284c7);
+  }
+
+  .confidence-hud-card.hud-danger::before {
+    background: linear-gradient(90deg, #ef4444, #ec4899, #f59e0b);
+  }
+  .confidence-hud-card.hud-success::before {
+    background: linear-gradient(90deg, #10b981, #00f3ff, #059669);
+  }
+
+  .confidence-hud-card:hover {
+    border-color: #00f3ff;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), 0 0 35px rgba(0, 243, 255, 0.22);
+    transform: translateY(-2px);
+  }
+
+  .confidence-hud-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .confidence-hud-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .hud-pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    animation: hudPulse 1.8s infinite;
+  }
+  .hud-pulse-dot.success {
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981;
+  }
+  .hud-pulse-dot.danger {
+    background: #ef4444;
+    box-shadow: 0 0 8px #ef4444;
+  }
+  .hud-pulse-dot.warning, .hud-pulse-dot.info {
+    background: #00f3ff;
+    box-shadow: 0 0 8px #00f3ff;
+  }
+
+  @keyframes hudPulse {
+    0% { transform: scale(0.85); opacity: 0.5; }
+    50% { transform: scale(1.25); opacity: 1; }
+    100% { transform: scale(0.85); opacity: 0.5; }
+  }
+
+  .hud-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #8fa6c2;
+    text-transform: uppercase;
+  }
+
+  .confidence-verdict-badge {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 4px 10px;
+    border-radius: 6px;
+    text-transform: uppercase;
+  }
+  .confidence-verdict-badge.success {
+    background: rgba(16, 185, 129, 0.16);
+    border: 1px solid rgba(16, 185, 129, 0.45);
+    color: #10b981;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+  }
+  .confidence-verdict-badge.danger {
+    background: rgba(239, 68, 68, 0.18);
+    border: 1px solid rgba(239, 68, 68, 0.55);
+    color: #ef4444;
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.25);
+  }
+  .confidence-verdict-badge.warning, .confidence-verdict-badge.info {
+    background: rgba(0, 243, 255, 0.14);
+    border: 1px solid rgba(0, 243, 255, 0.4);
+    color: #00f3ff;
+    box-shadow: 0 0 12px rgba(0, 243, 255, 0.2);
+  }
+
+  .confidence-hud-body {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .radial-gauge-wrap {
+    position: relative;
+    width: 78px;
+    height: 78px;
+    flex-shrink: 0;
+  }
+
+  .radial-gauge-svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+
+  .gauge-bg {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.08);
+    stroke-width: 6;
+  }
+
+  .gauge-progress {
+    fill: none;
+    stroke-width: 6.5;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .gauge-progress.success { stroke: #10b981; filter: drop-shadow(0 0 6px #10b981); }
+  .gauge-progress.danger { stroke: #ef4444; filter: drop-shadow(0 0 6px #ef4444); }
+  .gauge-progress.warning, .gauge-progress.info { stroke: #00f3ff; filter: drop-shadow(0 0 6px #00f3ff); }
+
+  .radial-gauge-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .gauge-num {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 19px;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1;
+  }
+
+  .gauge-num small {
+    font-size: 11px;
+    color: #8da2be;
+    font-weight: 600;
+  }
+
+  .gauge-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    color: #64748b;
+    letter-spacing: 0.08em;
+    margin-top: 2px;
+  }
+
+  .probability-split-wrap {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .prob-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    margin-bottom: 4px;
+  }
+
+  .prob-name {
+    color: #8fa6c2;
+  }
+
+  .prob-val.val-real {
+    color: #10b981;
+    font-weight: 700;
+  }
+
+  .prob-val.val-ai {
+    color: #ef4444;
+    font-weight: 700;
+  }
+
+  .prob-track {
+    height: 5px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .prob-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.8s ease;
+  }
+  .prob-fill.fill-real {
+    background: linear-gradient(90deg, #059669, #10b981);
+  }
+  .prob-fill.fill-ai {
+    background: linear-gradient(90deg, #dc2626, #f43f5e);
+  }
+
+  .confidence-defense-footer {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .defense-badge-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+
+  .defense-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #00f3ff;
+    letter-spacing: 0.08em;
+  }
+
+  .defense-model {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    color: #e2e8f0;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .defense-desc {
+    font-size: 10.5px;
+    color: #7b91ad;
+    line-height: 1.45;
+    margin: 0;
+  }
+
+  /* Diagnostic Banner Color Accents */
+  .assessment-banner.banner-success {
+    border-color: rgba(16, 185, 129, 0.35);
+    background: linear-gradient(135deg, rgba(6, 26, 20, 0.9), rgba(4, 15, 12, 0.95));
+    box-shadow: 0 0 25px rgba(16, 185, 129, 0.12);
+  }
+  .assessment-banner.banner-danger {
+    border-color: rgba(239, 68, 68, 0.4);
+    background: linear-gradient(135deg, rgba(28, 8, 14, 0.9), rgba(15, 4, 8, 0.95));
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.15);
+  }
+
+  .assessment-icon-wrap.success {
+    border-color: rgba(16, 185, 129, 0.45);
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+  }
+  .assessment-icon-wrap.danger {
+    border-color: rgba(239, 68, 68, 0.45);
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+  }
+
+  @media (max-width: 900px) {
+    .confidence-hud-card {
+      flex: 1 1 100%;
+      max-width: 100%;
+      margin-top: 12px;
+    }
+  }
+</style>
+
+{% endblock %}

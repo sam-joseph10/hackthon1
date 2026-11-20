@@ -1,0 +1,70 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TruthLens | Digital Forensics AI</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body>
+  <div class="shell">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <a class="brand" href="{% url 'dashboard' %}">
+        <span class="logo-circle">⬡</span>
+        <div class="brand-text">
+          <span class="brand-name">TRUTHLENS</span>
+          <span class="brand-sub">DIGITAL FORENSICS AI</span>
+        </div>
+      </a>
+
+      <div class="nav-group">
+        <div class="nav-caption">OPERATIONS</div>
+        <a class="nav active" href="{% url 'dashboard' %}">
+          <span class="nav-icon">▦</span> Dashboard
+        </a>
+        <a class="nav" href="{% url 'dashboard' %}#recent-scans">
+          <span class="nav-icon">▤</span> Investigations
+        </a>
+        <a class="nav" href="{% url 'dashboard' %}#intake">
+          <span class="nav-icon">⊕</span> New Investigation
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-caption">ACCOUNT</div>
+        <a class="nav" href="{% url 'profile' %}">
+          <span class="nav-icon">👤</span> Analyst Profile
+        </a>
+      </div>
+
+      <div class="sidebar-bottom">
+        <div class="nav-group sidebar-session">
+          <div class="nav-caption">SESSION</div>
+          {% if user.is_authenticated %}
+          <a class="nav" href="{% url 'logout' %}">
+            <span class="nav-icon">↪</span> Log Out
+          </a>
+          {% else %}
+          <a class="nav" href="{% url 'login' %}">
+            <span class="nav-icon">↪</span> Analyst Sign In
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main class="main">
+      <div class="content">
+        {% block content %}{% endblock %}
+      </div>
+      <footer class="app-footer">
+        <div>TRUTHLENS FORENSIC INTELLIGENCE LABS</div>
+        <span>Evidence-Led Forensic Verification • Local Model Execution</span>
+      </footer>
+    </main>
+  </div>
+  <script src="{% static 'js/app.js' %}"></script>
+</body>
+</html>

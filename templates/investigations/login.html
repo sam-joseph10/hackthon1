@@ -1,0 +1,964 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Biometric Login | TruthLens Digital Forensics AI</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <!-- React 18, ReactDOM & Babel -->
+  <script src="{% static 'js/react.min.js' %}"></script>
+  <script src="{% static 'js/react-dom.min.js' %}"></script>
+  <script src="{% static 'js/babel.min.js' %}"></script>
+  <!-- Three.js & GLTFLoader -->
+  <script src="{% static 'js/three.min.js' %}"></script>
+  <script src="{% static 'js/GLTFLoader.js' %}"></script>
+  <style>
+    /* Compact Cyber Card responsive bounds */
+    .cyber-card-compact {
+      max-width: 420px !important;
+      max-height: calc(100vh - 36px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(0, 243, 255, 0.35) transparent;
+      padding: 26px 30px 22px !important;
+    }
+    .cyber-card-compact::-webkit-scrollbar {
+      width: 4px;
+    }
+    .cyber-card-compact::-webkit-scrollbar-thumb {
+      background: rgba(0, 243, 255, 0.35);
+      border-radius: 4px;
+    }
+
+    /* Auth Mode Tabs */
+    .auth-mode-tabs {
+      display: flex;
+      gap: 6px;
+      background: rgba(4, 12, 24, 0.75);
+      padding: 4px;
+      border-radius: 12px;
+      border: 1px solid rgba(0, 243, 255, 0.2);
+      margin-bottom: 16px;
+    }
+    .auth-mode-tab {
+      flex: 1;
+      padding: 8px 12px;
+      background: transparent;
+      border: none;
+      color: #94a7bd;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: all 0.22s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .auth-mode-tab:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .auth-mode-tab.active {
+      background: linear-gradient(110deg, rgba(0, 243, 255, 0.24), rgba(2, 132, 199, 0.38));
+      color: #00f3ff;
+      border: 1px solid rgba(0, 243, 255, 0.5);
+      box-shadow: 0 0 16px rgba(0, 243, 255, 0.22);
+    }
+
+    /* Small switch button link */
+    .switch-mode-btn {
+      background: none;
+      border: none;
+      color: #00f3ff;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: color 0.2s ease, text-shadow 0.2s ease;
+    }
+    .switch-mode-btn:hover {
+      color: #38bdf8;
+      text-shadow: 0 0 10px rgba(0, 243, 255, 0.6);
+    }
+
+    /* Social Divider */
+    .cyber-social-divider {
+      display: flex;
+      align-items: center;
+      text-align: center;
+      margin: 16px 0 12px;
+      color: #64748b;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 1px;
+    }
+    .cyber-social-divider::before,
+    .cyber-social-divider::after {
+      content: '';
+      flex: 1;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .cyber-social-divider span {
+      padding: 0 10px;
+    }
+
+    /* Social Buttons Row */
+    .cyber-social-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .cyber-social-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: rgba(6, 16, 32, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      color: #e2e8f0;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.22s ease;
+      backdrop-filter: blur(8px);
+    }
+    .cyber-social-btn:hover {
+      background: rgba(14, 28, 54, 0.95);
+      border-color: rgba(0, 243, 255, 0.5);
+      color: #ffffff;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 243, 255, 0.2);
+    }
+    .cyber-social-btn:active {
+      transform: translateY(0);
+    }
+    .cyber-social-btn svg {
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body class="cyber-auth-body">
+  <div id="root"></div>
+
+  <!-- Server-injected configuration -->
+  <script>
+    window.TL_LOGIN_CONFIG = {
+      csrfToken: "{{ csrf_token }}",
+      errorMsg: "{% if error %}{{ error|escapejs }}{% endif %}",
+      authMode: "{{ auth_mode|default:'login'|escapejs }}",
+      modelUrl: "{% static 'models/girl_face.glb' %}",
+      loginUrl: "{% url 'login' %}",
+      registerUrl: "{% url 'register' %}",
+      dashboardUrl: "{% url 'dashboard' %}"
+    };
+  </script>
+
+  {% verbatim %}
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+    const config = window.TL_LOGIN_CONFIG || {};
+
+    // Component: Screen Laser Flare Scanning Across Viewport
+    function ScreenLaserFlare() {
+      const flareRef = useRef(null);
+
+      useEffect(() => {
+        let pos = 81.13;
+        let dir = -1;
+        const speed = 0.35;
+        let animId;
+
+        function step() {
+          pos += speed * dir;
+          if (pos >= 100) { pos = 100; dir = -1; }
+          else if (pos <= 0) { pos = 0; dir = 1; }
+          if (flareRef.current) {
+            flareRef.current.style.top = pos.toFixed(4) + '%';
+          }
+          animId = requestAnimationFrame(step);
+        }
+        animId = requestAnimationFrame(step);
+        return () => cancelAnimationFrame(animId);
+      }, []);
+
+      return (
+        <div
+          ref={flareRef}
+          id="screen-laser-flare"
+          style={{
+            position: 'fixed',
+            left: 0,
+            width: '100vw',
+            height: '2px',
+            background: 'linear-gradient(90deg, transparent 0%, rgba(0, 229, 255, 0.8) 25%, rgb(255, 255, 255) 50%, rgba(14, 165, 233, 0.8) 75%, transparent 100%)',
+            boxShadow: 'rgb(0, 229, 255) 0px 0px 14px, rgb(14, 165, 233) 0px 0px 24px',
+            zIndex: 3,
+            pointerEvents: 'none',
+            transition: 'top 0.05s linear',
+            opacity: 0.8,
+            top: '81.1309%'
+          }}
+        />
+      );
+    }
+
+    // Component: Compact 3D Female AI Face Canvas - Harmonized Cyber Palette & Compact Scale
+    function AIGirlFaceCanvas() {
+      const containerRef = useRef(null);
+      const canvasRef = useRef(null);
+
+      useEffect(() => {
+        const container = containerRef.current;
+        const canvas = canvasRef.current;
+        if (!container || !canvas || typeof THREE === 'undefined') return;
+
+        const scene = new THREE.Scene();
+        // Camera positioned for an elegant, compact portrait framing
+        const camera = new THREE.PerspectiveCamera(38, container.clientWidth / container.clientHeight, 0.1, 50);
+        camera.position.set(0, 0, 0.96);
+
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.15;
+        renderer.outputEncoding = THREE.sRGBEncoding;
+
+        // =======================================================
+        // HARMONIZED BACKGROUND LIGHTING (MATCHING DARK CYBER PALETTE)
+        // =======================================================
+        // Deep background ambient matching the dark navy/black background
+        const ambientLight = new THREE.AmbientLight(0x040d1a, 2.2);
+        scene.add(ambientLight);
+
+        // Soft clean cool key light (cool white/ice cyan)
+        const keyLight = new THREE.DirectionalLight(0xdcf8ff, 2.5);
+        keyLight.position.set(-1.2, 1.6, 2.0);
+        scene.add(keyLight);
+
+        // Deep cyber blue fill light (matching TruthLens blue theme)
+        const blueFill = new THREE.DirectionalLight(0x0284c7, 2.0);
+        blueFill.position.set(1.6, -0.6, 1.4);
+        scene.add(blueFill);
+
+        // Electric cyan rim light (matching neon cyber borders)
+        const cyanRim = new THREE.DirectionalLight(0x00f3ff, 2.8);
+        cyanRim.position.set(0.2, 2.0, -1.8);
+        scene.add(cyanRim);
+
+        // =======================================================
+        // ROOT PIVOT GROUPS WITH COMPACT SCALE (SIZE SMALL)
+        // =======================================================
+        const headPivot = new THREE.Group();
+        headPivot.scale.set(0.68, 0.68, 0.68); // Compact, small size
+        scene.add(headPivot);
+
+        const ringsGroup = new THREE.Group();
+        ringsGroup.scale.set(0.68, 0.68, 0.68); // Proportional compact scale
+        scene.add(ringsGroup);
+
+        // =======================================================
+        // 1. HARMONIZED CYBER SIDE RINGS (MATCHING BACKGROUND)
+        // =======================================================
+
+        // --- LEFT SIDE RETICLE RING GROUP ---
+        const leftReticleGroup = new THREE.Group();
+        leftReticleGroup.position.set(-0.24, 0.03, 0.02);
+
+        // Outer segmented cyan ring
+        for (let i = 0; i < 4; i++) {
+          const start = i * (Math.PI / 2) + 0.12;
+          const len = (Math.PI / 2) - 0.24;
+          const arc = new THREE.Mesh(
+            new THREE.RingGeometry(0.065, 0.071, 32, 1, start, len),
+            new THREE.MeshBasicMaterial({ color: 0x00f3ff, transparent: true, opacity: 0.85, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })
+          );
+          leftReticleGroup.add(arc);
+        }
+
+        // Middle dashed tick ring (Ice Blue)
+        const leftMidRing = new THREE.Mesh(
+          new THREE.RingGeometry(0.052, 0.056, 32),
+          new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.65, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })
+        );
+        leftReticleGroup.add(leftMidRing);
+
+        // Inner counter-rotating cyan-blue hexagon
+        const leftInnerHex = new THREE.Mesh(
+          new THREE.RingGeometry(0.036, 0.041, 6),
+          new THREE.MeshBasicMaterial({ color: 0x0284c7, transparent: true, opacity: 0.85, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })
+        );
+        leftReticleGroup.add(leftInnerHex);
+
+        // Precision crosshair lines
+        const chMat = new THREE.LineBasicMaterial({ color: 0x00f3ff, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending });
+        const leftChGeom = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(-0.028, 0, 0), new THREE.Vector3(-0.009, 0, 0),
+          new THREE.Vector3(0.009, 0, 0), new THREE.Vector3(0.028, 0, 0),
+          new THREE.Vector3(0, -0.028, 0), new THREE.Vector3(0, -0.009, 0),
+          new THREE.Vector3(0, 0.009, 0), new THREE.Vector3(0, 0.028, 0)
+        ]);
+        leftReticleGroup.add(new THREE.LineSegments(leftChGeom, chMat));
+        ringsGroup.add(leftReticleGroup);
+
+        // --- RIGHT SIDE RETICLE RING GROUP ---
+        const rightReticleGroup = new THREE.Group();
+        rightReticleGroup.position.set(0.24, -0.02, 0.02);
+
+        // Outer rotated diamond shape (Cyan)
+        const rightDiamond = new THREE.Mesh(
+          new THREE.RingGeometry(0.07, 0.076, 4),
+          new THREE.MeshBasicMaterial({ color: 0x00f3ff, transparent: true, opacity: 0.85, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })
+        );
+        rightDiamond.rotation.z = Math.PI / 4;
+        rightReticleGroup.add(rightDiamond);
+
+        // Concentric electric blue radar ring
+        const rightMidRing = new THREE.Mesh(
+          new THREE.RingGeometry(0.052, 0.057, 32),
+          new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.75, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })
+        );
+        rightReticleGroup.add(rightMidRing);
+
+        // Inner deep cyan octagon
+        const rightInnerOct = new THREE.Mesh(
+          new THREE.RingGeometry(0.035, 0.04, 8),
+          new THREE.MeshBasicMaterial({ color: 0x0284c7, transparent: true, opacity: 0.85, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })
+        );
+        rightReticleGroup.add(rightInnerOct);
+
+        // Crosshair for right reticle
+        const rightChGeom = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(-0.025, 0, 0), new THREE.Vector3(-0.008, 0, 0),
+          new THREE.Vector3(0.008, 0, 0), new THREE.Vector3(0.025, 0, 0),
+          new THREE.Vector3(0, -0.025, 0), new THREE.Vector3(0, -0.008, 0),
+          new THREE.Vector3(0, 0.008, 0), new THREE.Vector3(0, 0.025, 0)
+        ]);
+        rightReticleGroup.add(new THREE.LineSegments(rightChGeom, chMat));
+        ringsGroup.add(rightReticleGroup);
+
+        // =======================================================
+        // 2. CONCENTRIC GIMBAL RINGS (UNIFIED CYBER BLUE THEME)
+        // =======================================================
+
+        // Inner Segmented Cyan Gimbal Ring
+        const centerSegGroup = new THREE.Group();
+        for (let i = 0; i < 4; i++) {
+          const start = i * (Math.PI / 2) + 0.14;
+          const len = (Math.PI / 2) - 0.28;
+          const arc = new THREE.Mesh(
+            new THREE.RingGeometry(0.22, 0.228, 48, 1, start, len),
+            new THREE.MeshBasicMaterial({ color: 0x00f3ff, transparent: true, opacity: 0.75, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })
+          );
+          centerSegGroup.add(arc);
+        }
+        ringsGroup.add(centerSegGroup);
+
+        // Glowing Hexagonal Data Shield Ring (Tilted in 3D)
+        const hexShield = new THREE.Mesh(
+          new THREE.RingGeometry(0.28, 0.288, 6),
+          new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.6, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })
+        );
+        hexShield.rotation.x = Math.PI / 4;
+        ringsGroup.add(hexShield);
+
+        // Counter-Rotating Deep Cyan-Blue Octagonal Ring
+        const octRing = new THREE.Mesh(
+          new THREE.RingGeometry(0.33, 0.338, 8),
+          new THREE.MeshBasicMaterial({ color: 0x0284c7, transparent: true, opacity: 0.55, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })
+        );
+        octRing.rotation.y = Math.PI / 3.5;
+        octRing.rotation.x = -Math.PI / 8;
+        ringsGroup.add(octRing);
+
+        // Outer Segmented Orbit Ring (Electric Blue)
+        const outerOrbitGroup = new THREE.Group();
+        for (let i = 0; i < 3; i++) {
+          const start = i * ((Math.PI * 2) / 3) + 0.2;
+          const len = ((Math.PI * 2) / 3) - 0.4;
+          const arc = new THREE.Mesh(
+            new THREE.RingGeometry(0.38, 0.388, 48, 1, start, len),
+            new THREE.MeshBasicMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.5, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })
+          );
+          outerOrbitGroup.add(arc);
+        }
+        ringsGroup.add(outerOrbitGroup);
+
+        // =======================================================
+        // 3. ORBITING 3D QUANTUM DIAMOND NODES (CYAN / ICE BLUE)
+        // =======================================================
+        const orbitNodes = [];
+        const nodeMatCyan = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true });
+        const nodeMatBlue = new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true });
+        for (let i = 0; i < 4; i++) {
+          const mat = (i % 2 === 0) ? nodeMatCyan : nodeMatBlue;
+          const nodeMesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.016, 0), mat);
+          ringsGroup.add(nodeMesh);
+          orbitNodes.push({
+            mesh: nodeMesh,
+            radius: 0.30 + (i % 2) * 0.06,
+            speed: 0.55 + i * 0.2,
+            offset: (i * Math.PI * 2) / 4,
+            tilt: (i * Math.PI) / 5
+          });
+        }
+
+        // =======================================================
+        // 4. BIOMETRIC RADAR SONAR PULSE WAVE
+        // =======================================================
+        const pulseWaveGeom = new THREE.RingGeometry(0.14, 0.146, 64);
+        const pulseWaveMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, transparent: true, opacity: 0.65, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+        const pulseWave = new THREE.Mesh(pulseWaveGeom, pulseWaveMat);
+        ringsGroup.add(pulseWave);
+
+        // Active Vertical Laser Scanning Ring
+        const scanRingGeom = new THREE.RingGeometry(0.20, 0.206, 48);
+        const scanRingMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.75, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+        const scanRing = new THREE.Mesh(scanRingGeom, scanRingMat);
+        scanRing.rotation.x = Math.PI / 2;
+        headPivot.add(scanRing);
+
+        // Floating Particle Constellation Nebula (Cyber Cyan)
+        const particleCount = 180;
+        const particleGeom = new THREE.BufferGeometry();
+        const particlePos = new Float32Array(particleCount * 3);
+        for (let i = 0; i < particleCount * 3; i += 3) {
+          const radius = 0.38 + Math.random() * 0.7;
+          const theta = Math.random() * Math.PI * 2;
+          const phi = (Math.random() - 0.5) * Math.PI;
+          particlePos[i] = radius * Math.cos(phi) * Math.sin(theta);
+          particlePos[i + 1] = radius * Math.sin(phi);
+          particlePos[i + 2] = radius * Math.cos(phi) * Math.cos(theta);
+        }
+        particleGeom.setAttribute('position', new THREE.BufferAttribute(particlePos, 3));
+        const particleMat = new THREE.PointsMaterial({ color: 0x00f3ff, size: 0.008, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending });
+        const particleSystem = new THREE.Points(particleGeom, particleMat);
+        scene.add(particleSystem);
+
+        // =======================================================
+        // 5. LOAD 3D FEMALE HEAD MODEL (HARMONIZED COLOR TONE)
+        // =======================================================
+        let headMesh = null;
+        let morphDict = null;
+        let morphInfluences = null;
+
+        if (typeof THREE.GLTFLoader !== 'undefined' && config.modelUrl) {
+          const loader = new THREE.GLTFLoader();
+          loader.load(
+            config.modelUrl,
+            (gltf) => {
+              const model = gltf.scene;
+
+              // Hide body parts, clothes, and glasses; show purely the female face, hair, eyes & teeth
+              model.traverse((child) => {
+                if (child.name === 'Wolf3D_Glasses') child.visible = false;
+                if (child.name === 'Wolf3D_Outfit_Bottom') child.visible = false;
+                if (child.name === 'Wolf3D_Outfit_Footwear') child.visible = false;
+                if (child.name === 'Wolf3D_Body') child.visible = false;
+                if (child.name === 'Wolf3D_Outfit_Top') child.visible = false;
+
+                if (child.name === 'Wolf3D_Head') {
+                  headMesh = child;
+                  morphDict = child.morphTargetDictionary;
+                  morphInfluences = child.morphTargetInfluences;
+                }
+
+                if (child.isMesh && child.material) {
+                  child.material.roughness = 0.52;
+                  child.material.metalness = 0.18;
+                  if (child.material.map) child.material.map.encoding = THREE.sRGBEncoding;
+                  // Harmonize model color with background cyber ambiance
+                  if (child.material.color) {
+                    child.material.color.multiply(new THREE.Color(0.94, 0.97, 1.0));
+                  }
+                }
+              });
+
+              if (headMesh) {
+                const box = new THREE.Box3().setFromObject(headMesh);
+                const center = new THREE.Vector3();
+                box.getCenter(center);
+                model.position.set(-center.x, -center.y, -center.z);
+              }
+
+              headPivot.add(model);
+            },
+            undefined,
+            (err) => console.warn('Model load notice:', err)
+          );
+        }
+
+        // =======================================================
+        // 6. INTERACTIVE MOUSE GAZE TRACKING
+        // =======================================================
+        let targetRotX = 0, targetRotY = 0;
+        let currentRotX = 0, currentRotY = 0;
+
+        const onMouseMove = (e) => {
+          const cx = window.innerWidth / 2;
+          const cy = window.innerHeight / 2;
+          targetRotY = ((e.clientX - cx) / cx) * 0.35;
+          targetRotX = ((e.clientY - cy) / cy) * 0.20;
+        };
+        window.addEventListener('mousemove', onMouseMove);
+
+        // =======================================================
+        // 7. ANIMATION LOOP
+        // =======================================================
+        let clock = 0;
+        let blinkTimer = 0;
+        let isBlinking = false;
+        let animId;
+
+        function animate() {
+          animId = requestAnimationFrame(animate);
+          clock += 0.016;
+
+          // Mouse easing
+          currentRotX += (targetRotX - currentRotX) * 0.055;
+          currentRotY += (targetRotY - currentRotY) * 0.055;
+
+          // Continuous gentle floating and rotation for head
+          headPivot.rotation.y = Math.sin(clock * 0.5) * 0.16 + currentRotY;
+          headPivot.rotation.x = Math.sin(clock * 0.7) * 0.03 + currentRotX;
+          headPivot.rotation.z = Math.cos(clock * 0.4) * 0.015 - currentRotY * 0.05;
+
+          // Organic levitation bob
+          headPivot.position.y = Math.sin(clock * 1.4) * 0.02;
+
+          // Active vertical laser scanning ring
+          scanRing.position.y = Math.sin(clock * 2.2) * 0.20;
+
+          // Animate Central Gimbal Rings
+          centerSegGroup.rotation.z += 0.007;
+          outerOrbitGroup.rotation.z -= 0.0045;
+
+          // Animate Geometric Shaped Rings
+          hexShield.rotation.z += 0.004;
+          hexShield.rotation.y = Math.sin(clock * 0.4) * 0.18;
+          octRing.rotation.z -= 0.0035;
+
+          // Animate Left Side Reticle Ring
+          leftReticleGroup.rotation.z += 0.012;
+          leftInnerHex.rotation.z -= 0.022;
+          leftReticleGroup.position.y = 0.03 + Math.sin(clock * 1.5) * 0.012;
+
+          // Animate Right Side Reticle Ring
+          rightReticleGroup.rotation.z -= 0.01;
+          rightDiamond.rotation.z += 0.008;
+          rightInnerOct.rotation.z -= 0.018;
+          rightReticleGroup.position.y = -0.02 + Math.cos(clock * 1.3) * 0.012;
+
+          // Animate Orbiting Quantum Diamond Nodes
+          orbitNodes.forEach((node) => {
+            const angle = clock * node.speed + node.offset;
+            node.mesh.position.x = Math.cos(angle) * node.radius;
+            node.mesh.position.y = Math.sin(angle) * Math.cos(node.tilt) * node.radius;
+            node.mesh.position.z = Math.sin(angle) * Math.sin(node.tilt) * node.radius * 0.6;
+            node.mesh.rotation.x += 0.035;
+            node.mesh.rotation.y += 0.045;
+          });
+
+          // Expand Biometric Radar Sonar Pulse Wave
+          const pulseCycle = (clock * 0.45) % 1;
+          const pulseScale = 1.0 + pulseCycle * 2.0;
+          pulseWave.scale.set(pulseScale, pulseScale, 1);
+          pulseWaveMat.opacity = Math.max(0, 0.65 * (1 - pulseCycle));
+
+          // Nebula particle drift
+          particleSystem.rotation.y -= 0.0012;
+
+          // Realistic Facial Blendshapes: Smile, Attentive Expression, and Natural Eye Blinking
+          if (morphDict && morphInfluences) {
+            // Subtle, pleasant AI smile
+            const smileIdx = morphDict['mouthSmile'];
+            if (smileIdx !== undefined) {
+              morphInfluences[smileIdx] = 0.18 + Math.sin(clock * 1.1) * 0.04;
+            }
+
+            // Attentive eyebrow micro-expression
+            const browIdx = morphDict['browInnerUp'];
+            if (browIdx !== undefined) {
+              morphInfluences[browIdx] = 0.08 + Math.sin(clock * 0.7) * 0.03;
+            }
+
+            // Natural Periodic Eye Blinking (every ~3.5 seconds)
+            blinkTimer += 0.016;
+            if (blinkTimer > 3.4 && !isBlinking) {
+              isBlinking = true;
+            }
+            if (isBlinking) {
+              const blinkL = morphDict['eyeBlinkLeft'];
+              const blinkR = morphDict['eyeBlinkRight'];
+              const progress = (blinkTimer - 3.4) / 0.18; // 180ms blink
+              if (progress < 1.0) {
+                const val = Math.sin(progress * Math.PI);
+                if (blinkL !== undefined) morphInfluences[blinkL] = val;
+                if (blinkR !== undefined) morphInfluences[blinkR] = val;
+              } else {
+                if (blinkL !== undefined) morphInfluences[blinkL] = 0;
+                if (blinkR !== undefined) morphInfluences[blinkR] = 0;
+                isBlinking = false;
+                blinkTimer = Math.random() * 0.9;
+              }
+            }
+          }
+
+          renderer.render(scene, camera);
+        }
+        animate();
+
+        // Window resize handler
+        const onResize = () => {
+          if (!container) return;
+          camera.aspect = container.clientWidth / container.clientHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(container.clientWidth, container.clientHeight);
+        };
+        window.addEventListener('resize', onResize);
+
+        return () => {
+          cancelAnimationFrame(animId);
+          window.removeEventListener('mousemove', onMouseMove);
+          window.removeEventListener('resize', onResize);
+        };
+      }, []);
+
+      return (
+        <div className="face-canvas-area" ref={containerRef} id="faceCanvasArea">
+          <canvas ref={canvasRef} id="face3DCanvas" />
+        </div>
+      );
+    }
+
+    // Component: React Login & Register Card (With Inline Mode Switch & Social Auth)
+    function LoginCard() {
+      const [authMode, setAuthMode] = useState(config.authMode || 'login');
+
+      // Login state
+      const [username, setUsername] = useState('');
+      const [password, setPassword] = useState('');
+      const [showPassword, setShowPassword] = useState(false);
+      const [remember, setRemember] = useState(true);
+
+      // Register state
+      const [regUsername, setRegUsername] = useState('');
+      const [regEmail, setRegEmail] = useState('');
+      const [regPassword, setRegPassword] = useState('');
+      const [regConfirm, setRegConfirm] = useState('');
+      const [showRegPassword, setShowRegPassword] = useState(false);
+
+      const csrfToken = config.csrfToken || '';
+      const errorMsg = config.errorMsg || '';
+      const loginUrl = config.loginUrl || '/login/';
+      const dashboardUrl = config.dashboardUrl || '/dashboard/';
+
+      // Social OAuth login trigger (Authenticates & redirects directly to dashboard)
+      const handleSocialLogin = (provider) => {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = loginUrl;
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+
+        const modeInput = document.createElement('input');
+        modeInput.type = 'hidden';
+        modeInput.name = 'auth_mode';
+        modeInput.value = 'social';
+        form.appendChild(modeInput);
+
+        const providerInput = document.createElement('input');
+        providerInput.type = 'hidden';
+        providerInput.name = 'provider';
+        providerInput.value = provider;
+        form.appendChild(providerInput);
+
+        document.body.appendChild(form);
+        form.submit();
+      };
+
+      return (
+        <div className="cyber-card cyber-card-compact" id="cyberCard" style={{ marginRight: '3vw' }}>
+          <div className="cyber-badge-wrap">
+            <div className="cyber-badge">
+              <span className="cyber-dot"></span>
+              <span>{authMode === 'login' ? 'BIOMETRIC CLEARANCE · LEVEL 4' : 'NEW AGENT ENROLLMENT · LEVEL 4'}</span>
+            </div>
+          </div>
+
+          <h1 className="cyber-title">{authMode === 'login' ? 'LOGIN' : 'REGISTER'}</h1>
+          <div className="cyber-subtitle">
+            {authMode === 'login'
+              ? 'NEURAL MESH INTEGRITY: VALIDATED · FORENSIC PORTAL'
+              : 'BIOMETRIC CREDENTIAL REGISTRATION · FORENSIC PORTAL'}
+          </div>
+
+          {/* Mode Switcher Tabs */}
+          <div className="auth-mode-tabs">
+            <button
+              type="button"
+              className={`auth-mode-tab ${authMode === 'login' ? 'active' : ''}`}
+              onClick={() => setAuthMode('login')}
+              id="tabSignIn"
+            >
+              <span>✦ Sign In</span>
+            </button>
+            <button
+              type="button"
+              className={`auth-mode-tab ${authMode === 'register' ? 'active' : ''}`}
+              onClick={() => setAuthMode('register')}
+              id="tabRegister"
+            >
+              <span>✦ Register</span>
+            </button>
+          </div>
+
+          {errorMsg && (
+            <div className="gold-error" style={{ background: 'rgba(239, 68, 68, 0.2)', borderColor: 'rgba(239, 68, 68, 0.4)', color: '#fca5a5', marginBottom: '14px' }}>
+              <span>⚠</span> {errorMsg}
+            </div>
+          )}
+
+          {/* LOGIN FORM */}
+          {authMode === 'login' ? (
+            <form method="post" action={loginUrl} className="cyber-form">
+              <input type="hidden" name="csrfmiddlewaretoken" value={csrfToken} />
+              <input type="hidden" name="auth_mode" value="login" />
+
+              <div className="cyber-field">
+                <label className="cyber-label">Email address / Analyst ID</label>
+                <input
+                  type="text"
+                  name="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="sam or analyst@truthlens.ai"
+                  required
+                  autoFocus
+                  className="cyber-input"
+                />
+              </div>
+
+              <div className="cyber-field">
+                <label className="cyber-label">Access Key / Password</label>
+                <div className="cyber-input-wrap">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    id="loginPassword"
+                    name="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    className="cyber-input"
+                  />
+                  <button
+                    type="button"
+                    className="cyber-eye"
+                    onClick={() => setShowPassword(!showPassword)}
+                    title="Show/Hide Password"
+                    style={{ opacity: showPassword ? 1 : 0.7 }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div className="cyber-controls">
+                <label className="cyber-remember">
+                  <input
+                    type="checkbox"
+                    name="remember"
+                    checked={remember}
+                    onChange={(e) => setRemember(e.target.checked)}
+                    className="cyber-checkbox"
+                  />
+                  <span>Remember clearance</span>
+                </label>
+              </div>
+
+              <div className="cyber-btn-row">
+                <button type="submit" className="cyber-btn" id="loginSubmitBtn">
+                  Login
+                </button>
+              </div>
+            </form>
+          ) : (
+            /* REGISTER FORM - OPENS INLINE HERE */
+            <form method="post" action={loginUrl} className="cyber-form">
+              <input type="hidden" name="csrfmiddlewaretoken" value={csrfToken} />
+              <input type="hidden" name="auth_mode" value="register" />
+
+              <div className="cyber-field">
+                <label className="cyber-label">Investigator Username / Handle</label>
+                <input
+                  type="text"
+                  name="username"
+                  value={regUsername}
+                  onChange={(e) => setRegUsername(e.target.value)}
+                  placeholder="e.g. analyst_clark"
+                  required
+                  autoFocus
+                  className="cyber-input"
+                  id="regUsernameInput"
+                />
+              </div>
+
+              <div className="cyber-field">
+                <label className="cyber-label">Official Clearance Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={regEmail}
+                  onChange={(e) => setRegEmail(e.target.value)}
+                  placeholder="investigator@truthlens.ai"
+                  required
+                  className="cyber-input"
+                  id="regEmailInput"
+                />
+              </div>
+
+              <div className="cyber-field">
+                <label className="cyber-label">Create Access Key / Password</label>
+                <div className="cyber-input-wrap">
+                  <input
+                    type={showRegPassword ? 'text' : 'password'}
+                    id="regPasswordInput"
+                    name="password"
+                    value={regPassword}
+                    onChange={(e) => setRegPassword(e.target.value)}
+                    placeholder="Minimum 8 characters"
+                    required
+                    className="cyber-input"
+                  />
+                  <button
+                    type="button"
+                    className="cyber-eye"
+                    onClick={() => setShowRegPassword(!showRegPassword)}
+                    title="Show/Hide Password"
+                    style={{ opacity: showRegPassword ? 1 : 0.7 }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div className="cyber-field">
+                <label className="cyber-label">Confirm Access Key</label>
+                <input
+                  type={showRegPassword ? 'text' : 'password'}
+                  id="regConfirmInput"
+                  name="confirm_password"
+                  value={regConfirm}
+                  onChange={(e) => setRegConfirm(e.target.value)}
+                  placeholder="Repeat password"
+                  required
+                  className="cyber-input"
+                />
+              </div>
+
+              <div className="cyber-controls">
+                <span style={{ fontSize: '11px', color: '#94a7bd' }}>
+                  Auto-enrolling into Level 4 Clearance
+                </span>
+                <button
+                  type="button"
+                  className="switch-mode-btn"
+                  onClick={() => setAuthMode('login')}
+                  id="backToLoginBtn"
+                >
+                  Back to Login ↗
+                </button>
+              </div>
+
+              <div className="cyber-btn-row">
+                <button type="submit" className="cyber-btn" id="registerSubmitBtn">
+                  ENROLL &amp; ENTER DASHBOARD ↗
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* GOOGLE & GITHUB SOCIAL AUTHENTICATION BUTTONS */}
+          <div className="cyber-social-divider">
+            <span>OR CONTINUE WITH</span>
+          </div>
+
+          <div className="cyber-social-row">
+            <button
+              type="button"
+              className="cyber-social-btn"
+              id="googleLoginBtn"
+              onClick={() => handleSocialLogin('google')}
+              title="Authenticate via Google"
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+                <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/>
+                <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+                <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+              </svg>
+              <span>Google</span>
+            </button>
+
+            <button
+              type="button"
+              className="cyber-social-btn"
+              id="githubLoginBtn"
+              onClick={() => handleSocialLogin('github')}
+              title="Authenticate via GitHub"
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="#ffffff">
+                <path fillRule="evenodd" clipRule="evenodd" d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+              </svg>
+              <span>GitHub</span>
+            </button>
+          </div>
+
+        </div>
+      );
+    }
+
+    // Root App Component
+    function App() {
+      return (
+        <React.Fragment>
+          <div className="cyber-grid-overlay" />
+          <ScreenLaserFlare />
+          <div className="cyber-login-layout-3d">
+            <AIGirlFaceCanvas />
+            <LoginCard />
+          </div>
+        </React.Fragment>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+  {% endverbatim %}
+</body>
+</html>
