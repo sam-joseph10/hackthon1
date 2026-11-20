@@ -15,13 +15,24 @@ SECRET_KEY = os.getenv(
 
 DEBUG = os.getenv('DJANGO_DEBUG', '1') == '1'
 
+# Allowed hosts (Local + Render)
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.getenv(
         'DJANGO_ALLOWED_HOSTS',
-        '127.0.0.1,localhost'
+        '127.0.0.1,localhost,hackthon1-b0x8.onrender.com'
     ).split(',')
     if host.strip()
+]
+
+# CSRF Trusted Origins
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        'DJANGO_CSRF_TRUSTED_ORIGINS',
+        'https://hackthon1-b0x8.onrender.com'
+    ).split(',')
+    if origin.strip()
 ]
 
 # --------------------------------------------------
@@ -35,6 +46,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
     'investigations',
 ]
 
@@ -99,8 +111,11 @@ AUTH_PASSWORD_VALIDATORS = []
 # --------------------------------------------------
 
 LANGUAGE_CODE = 'en-us'
+
 TIME_ZONE = 'UTC'
+
 USE_I18N = True
+
 USE_TZ = True
 
 # --------------------------------------------------
@@ -113,17 +128,15 @@ STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
 
-# Required for collectstatic on Render
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# WhiteNoise static file storage
 STORAGES = {
     'default': {
         'BACKEND': 'django.core.files.storage.FileSystemStorage',
     },
     'staticfiles': {
-    'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
-},
+        'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
+    },
 }
 
 # --------------------------------------------------
@@ -131,6 +144,7 @@ STORAGES = {
 # --------------------------------------------------
 
 MEDIA_URL = '/media/'
+
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # --------------------------------------------------
@@ -138,6 +152,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # --------------------------------------------------
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = 80 * 1024 * 1024
+
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 
 # --------------------------------------------------
@@ -151,6 +166,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # --------------------------------------------------
 
 SECURE_CONTENT_TYPE_NOSNIFF = True
+
 X_FRAME_OPTIONS = 'DENY'
 
 # --------------------------------------------------
@@ -158,7 +174,14 @@ X_FRAME_OPTIONS = 'DENY'
 # --------------------------------------------------
 
 if not DEBUG:
+
     SECURE_SSL_REDIRECT = True
+
     SESSION_COOKIE_SECURE = True
+
     CSRF_COOKIE_SECURE = True
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+    SECURE_PROXY_SSL_HEADER = (
+        'HTTP_X_FORWARDED_PROTO',
+        'https'
+    )
